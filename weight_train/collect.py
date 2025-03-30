@@ -25,7 +25,7 @@ MQTT_PORT = environ.get('MQTT_PORT', 1883)
 MQTT_DATA_TOPIC = 'shelf/data'
 TMP_MQTT_DATA_PATH = Path.cwd() / Path('tmp/mqtt-data.csv')
 TMP_INTERACTION_DATA_PATH = Path.cwd() / Path('tmp/interaction-data.csv')
-TIME_STR_FT = '%H:%M:%S-%d-%m-%Y'
+TIME_STR_FT = '%H:%M:%S:%f-%d-%m-%Y'
 
 # Global variables
 shelf_id = environ.get('SHELF_ID', "")
@@ -57,7 +57,6 @@ def on_msg_callback(client, userdata, msg):
     global shelf_id
     global window_ms
     global slot_id
-    print("Message received")
     # Get the time that this message was received
     current_time = datetime.datetime.now().strftime(TIME_STR_FT)
     # Load message as JSON
