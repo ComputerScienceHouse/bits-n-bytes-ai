@@ -34,6 +34,7 @@ try:
 except TypeError:
     slot_id = 0
 window_ms = 5000
+known_weight_g = environ.get('KNOWN_WEIGHT', 226)
 
 
 def print_help():
@@ -41,6 +42,7 @@ def print_help():
     print("set shelf <mac address> - configure which shelf to listen to for data.")
     print("set slot <slot id> - configure which slot id to listen to for data.")
     print("set window <millis> - set data collection window in millis")
+    print("set weight <grams> - set known weight being added/removed from scale")
     print("record <integer> - record weight data for 5 seconds, during which you will add/remove a certain number of items that you enter as the integer. Positive numbers for items being removed, negative for items being put back.")
 
 
@@ -83,6 +85,7 @@ def main():
     global shelf_id
     global window_ms
     global slot_id
+    global known_weight_g
 
     # Connect to MQTT, subscribe to data topic, and start MQTT thread
     mqtt = mqtt_client.Client(mqtt_enums.CallbackAPIVersion.VERSION2)
@@ -120,6 +123,8 @@ def main():
                 shelf_id = arguments[0]
             case ['set', 'slot', *arguments]:
                 slot_id = int(arguments[0])
+            case ['set', 'weight', *arguments]:
+                known_weight_g = int(arguments[0])
             case ['set', 'window', *arguments]:
                 try:
                     window_ms = int(arguments[0])
@@ -150,7 +155,7 @@ def main():
                     # Write output to terminal
                     with open(TMP_INTERACTION_DATA_PATH, 'a') as out_file:
                         csv_writer = csv.writer(out_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-                        csv_writer.writerow([current_time, num_items])
+                        csv_writer.writerow([current_time, known_weight_g, num_items])
                     print("Recorded. If you did not complete instruction, type 'delete' to remove the last datapoint.")
             case ['delete']:
                 with open(TMP_INTERACTION_DATA_PATH, 'r') as in_file:
