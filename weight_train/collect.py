@@ -1,0 +1,138 @@
+###############################################################################
+#
+# File: collect.py
+#
+# Author: Isaac Ingram
+#
+# Purpose:
+#
+###############################################################################
+import datetime
+import time
+from os import environ
+import sys
+from pathlib import Path
+import paho.mqtt.client as mqtt_client
+import json
+import paho.mqtt.enums as mqtt_enums
+import csv
+
+
+# Constants
+MQTT_URL = environ.get('MQTT_URL', 'test.mosquitto.org')
+MQTT_PORT = environ.get('MQTT_PORT', 1883)
+MQTT_DATA_TOPIC = 'shelf/data'
+TMP_MQTT_DATA_PATH = Path('/tmp/mqtt.csv')
+TIME_STR_FT = '%H:%M%S-%d-%m-%Y'
+
+# Global variables
+shelf_id = ""
+slot_id = 0
+window_ms = 5000
+
+
+def print_help():
+    print("exit - Exit this app.")
+    print("set shelf <mac address> - configure which shelf to listen to for data.")
+    print("set slot <slot id> - configure which slot id to listen to for data.")
+    print("set window <millis> - set data collection window in millis")
+    print("record <integer> - record weight data for 5 seconds, during which you will add/remove a certain number of items that you enter as the integer. Positive numbers for items being removed, negative for items being put back.")
+
+
+def on_msg_callback(client, userdata, msg):
+    """
+    Callback for when a MQTT message is received on the shelf data topic.
+    Writes time series data to a CSV file along with the weights.
+    :param client:
+    :param userdata:
+    :param msg:
+    :return:
+    """
+
+    global shelf_id
+    global window_ms
+    global slot_id
+    # Get the time that this message was received
+    current_time = datetime.datetime.now().strftime(TIME_STR_FT)
+    # Load message as JSON
+    message = msg.payload.decode('utf-8')
+    json_data = json.loads(message)
+    # Check that message contains all necessary fields
+    # Message is from the correct shelf
+    if shelf_id in json_data:
+        # Message contains 'data' field
+        if 'data' in json_data[shelf_id]:
+            # Data field is at least the length of the target slot ID
+            if len(json_data[shelf_id]['data']) > slot_id:
+                # Get the current weight
+                current_weight = json_data[shelf_id]['data'][slot_id]
+                # Write weight to CSV file
+                with open(TMP_MQTT_DATA_PATH, 'a') as out_file:
+                    csv_writer = csv.writer(out_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                    csv_writer.writerow([current_time, current_weight])
+
+def clear_line():
+    print("\033[K", end='')
+
+def main():
+
+    global shelf_id
+    global window_ms
+    global slot_id
+
+    mqtt = mqtt_client.Client(mqtt_enums.CallbackAPIVersion.VERSION2)
+    mqtt.connect(MQTT_URL, MQTT_PORT)
+    mqtt.subscribe(MQTT_DATA_TOPIC)
+    mqtt.message_callback_add(MQTT_DATA_TOPIC, on_msg_callback)
+
+    if len(sys.argv) == 2:
+        output_csv_path = Path(sys.argv[1])
+    else:
+        output_csv_path = Path(input("Enter output CSV path:"))
+
+
+    print("Welcome to weight_train collect. Type 'help' for a list of commands or 'exit' to exit.")
+    print("Important Note: If you exit without using the 'exit' command, the data gathered will not be compiled into usable data!")
+
+    while True:
+        command = input('>').split()
+        match command:
+            case ['help']:
+                print_help()
+            case ['exit']:
+                # TODO parse data
+                break
+            case ['set', 'shelf', *arguments]:
+                shelf_id = arguments[0]
+            case ['set', 'slot', *arguments]:
+                slot_id = arguments[0]
+            case ['set', 'window', *arguments]:
+                try:
+                    window_ms = int(arguments[0])
+                except ValueError or IndexError:
+                    print("Invalid arguments")
+            case ['record', *arguments]:
+                if len(arguments) != 1:
+                    print("Unknown number of args")
+                else:
+                    # Make sure number entered is valid
+                    try:
+                        num_items = int(arguments[0])
+                    except TypeError:
+                        print("Invalid number")
+                    if num_items > 0:
+                        print("Remove %d items from slot %d..." % (num_items, slot_id))
+                    elif num_items < 0:
+                        print("Add %d items to slot %d..." % (-1 * num_items, slot_id))
+                    else:
+                        print("Do not touch items...")
+                    start_time_ms = time.time() * 1000
+                    while time.time() * 1000 < start_time_ms + window_ms:
+                        pass
+                    print("Recorded. If you did not complete instruction, type 'delete' to remove the last datapoint.")
+            case _:
+                print("Unknown command, type 'help' for a list of commands.")
+
+
+if __name__ == '__main__':
+    main()
