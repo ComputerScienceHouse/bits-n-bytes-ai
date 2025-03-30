@@ -64,17 +64,18 @@ def on_msg_callback(client, userdata, msg):
     json_data = json.loads(message)
     # Check that message contains all necessary fields
     # Message is from the correct shelf
-    if shelf_id in json_data:
-        # Message contains 'data' field
-        if 'data' in json_data[shelf_id]:
-            # Data field is at least the length of the target slot ID
-            if len(json_data[shelf_id]['data']) > slot_id:
-                # Get the current weight
-                current_weight = json_data[shelf_id]['data'][slot_id]
-                # Write weight to CSV file
-                with open(TMP_MQTT_DATA_PATH, 'a') as out_file:
-                    csv_writer = csv.writer(out_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-                    csv_writer.writerow([current_time, current_weight])
+    if 'id' in json_data:
+        if json_data['id'] == shelf_id:
+            # Message contains 'data' field
+            if 'data' in json_data:
+                # Data field is at least the length of the target slot ID
+                if len(json_data['data']) > slot_id:
+                    # Get the current weight
+                    current_weight = json_data['data'][slot_id]
+                    # Write weight to CSV file
+                    with open(TMP_MQTT_DATA_PATH, 'a') as out_file:
+                        csv_writer = csv.writer(out_file, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                        csv_writer.writerow([current_time, current_weight])
 
 
 def main():
@@ -118,7 +119,7 @@ def main():
             case ['set', 'shelf', *arguments]:
                 shelf_id = arguments[0]
             case ['set', 'slot', *arguments]:
-                slot_id = arguments[0]
+                slot_id = int(arguments[0])
             case ['set', 'window', *arguments]:
                 try:
                     window_ms = int(arguments[0])
@@ -134,6 +135,7 @@ def main():
                         num_items = int(arguments[0])
                     except TypeError:
                         print("Invalid number")
+                        continue
                     # Write instruction message to terminal
                     if num_items > 0:
                         print("Remove %d items from slot %d..." % (num_items, slot_id))
