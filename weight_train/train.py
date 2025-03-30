@@ -8,7 +8,11 @@
 #
 ###############################################################################
 import argparse
+import pickle
+
 import pandas as pd
+from model import AdvancedItemWeightDetectionModel
+from pathlib import Path
 
 TIME_STR_FT = '%H:%M:%S:%f-%d-%m-%Y'
 
@@ -17,7 +21,8 @@ def main():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--interaction_data', type=str, default='tmp/interaction-data.csv', help='Path to CSV with interaction data.')
     arg_parser.add_argument('--mqtt_data', type=str, default='tmp/mqtt-data.csv', help='Path to CSV with MQTT data.')
-    arg_parser.add_argument('--time_delta', type=float, default=5.0, help='Time delta in seconds.')
+    arg_parser.add_argument('--time_delta', type=float, default=5, help='Time delta in seconds.')
+    arg_parser.add_argument('--model', type=str, default='current_model.pickle', help='Path to model')
     args = arg_parser.parse_args()
 
     # Read interaction data and MQTT data separately
@@ -34,7 +39,7 @@ def main():
     # Iterate through each interaction
     for index, row in interaction_df.iterrows():
         interaction_time = row['timestamp']
-        target_value = row.iloc[1]  # Second column contains the target value
+        target_value = row.iloc[2]  # Third column contains the target value
 
         # Get MQTT data within time delta after the interaction timestamp
         matching_mqtt = mqtt_df[(mqtt_df['timestamp'] >= interaction_time) &
@@ -65,6 +70,12 @@ def main():
             result_data.append(data_point)
 
         result_df = pd.DataFrame(result_data)
+
+        model = AdvancedItemWeightDetectionModel(window_size=25)
+        model.train(result_df)
+
+        with open(Path.cwd() / Path(args.model), 'wb') as model_out:
+            pickle.dump(model, model_out)
 
 
 if __name__ == '__main__':
