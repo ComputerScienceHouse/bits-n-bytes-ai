@@ -36,6 +36,8 @@ except TypeError:
 window_ms = 5000
 known_weight_g = environ.get('KNOWN_WEIGHT', 226)
 
+# TODO I forgor this needs to be tared otherwise the values are meaningless
+
 
 def print_help():
     print("exit - Exit this app.")
