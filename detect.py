@@ -88,8 +88,8 @@ def main():
         model = model.half().to(device)
 
 
-    line_start = sv.Point(50, 300)
-    line_end = sv.Point(600, 300)
+    line_start = sv.Point(1000, 0)
+    line_end = sv.Point(1000, 2000)
     line_counter = sv.LineZone(start=line_start, end=line_end)
 
     byte_tracker = sv.ByteTrack()
@@ -123,7 +123,7 @@ def main():
         )
 
         # Filter detections by confidence threshold
-        detections = detections[detections.confidence > 0.6]
+        detections = detections[detections.confidence > 0.1]
 
         labels = [results.names[class_id] for class_id in class_ids]
 
@@ -152,10 +152,10 @@ def main():
             print("No detections found.")
 
         # Track objects
-        detections_updated = byte_tracker.update_with_detections(detections)
+        line_counter_detections = byte_tracker.update_with_detections(detections)
 
         # Count objects crossing the line
-        line_counter.trigger(detections=detections)
+        line_counter.trigger(detections=line_counter_detections)
 
         # Annotate frame with detections and line
         annotated_frame = frame.copy()
