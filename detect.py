@@ -13,22 +13,9 @@
 import sys
 from pathlib import Path
 
-import numpy as np
 import supervision as sv
 from supervision import Point, Detections
 from ultralytics import YOLO
-
-# Try to import yolov7, which must be pulled using git submodules
-try:
-    sys.path.append("./yolov7/")
-    from yolov7 import models as models
-    from yolov7.hubconf import *
-    from yolov7 import *
-except ImportError or ModuleNotFoundError:
-    print("Error: Unable to find 'yolov7.models' module.")
-    print("Run 'git submodule update --init --recursive' to install all submodules.")
-    print("Check the README for more setup instructions.")
-    exit(1)
 import torch
 import argparse
 import cv2
@@ -52,6 +39,18 @@ def main():
         type=str,
         default=DEFAULT_WEBCAM_PORT,
         help=f"The webcam port to use (Default: {DEFAULT_WEBCAM_PORT}).",
+    )
+    arg_parser.add_argument(
+        "--print_detections",
+        action="store_true",
+        default=False,
+        help="Print the detected objects."
+    )
+    arg_parser.add_argument(
+        "--confidence",
+        type=float,
+        default=0.2,
+        help="The confidence threshold to filter detections."
     )
     args = arg_parser.parse_args()
 
@@ -77,46 +76,47 @@ def main():
         else:
             print("Failed to read frame from camera")
 
-    # Get model
-    # model_path = Path(args.model_path)
-
-    # Load YOLO model
+    # Load YOLO v11 model
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     model = YOLO(args.model_path)
 
+    # Put half model on CUDA device if it's available
     if torch.cuda.is_available():
         model = model.half().to(device)
 
+    # Configure object tracking. Helps smooth object detection getting lost between multiple frames
+    # TODO update lost_track_buffer size based on Jetson framerate
+    byte_tracker = sv.ByteTrack(track_activation_threshold=0.07, lost_track_buffer=100)
 
+    # Configure line counter
     line_start = sv.Point(1000, 0)
     line_end = sv.Point(1000, 2000)
     line_counter = sv.LineZone(start=line_start, end=line_end, minimum_crossing_threshold=1)
-
-    byte_tracker = sv.ByteTrack(track_activation_threshold=0.07, lost_track_buffer=100)
-
 
     # Create annotators for visualization
     box_annotator = sv.BoxAnnotator()
     line_annotator = sv.LineZoneAnnotator()
     label_annotator = sv.LabelAnnotator()
 
+    # Infinite loop
     while True:
+        # Read frame from camera
         ret, frame = test_cap.read()
-
         if not ret:
             print("Failed to read frame")
             continue
 
+        # Get results from model
         results = model(frame, verbose=False)[0]
-
         if not results:
             continue
 
+        # Pull out bounding boxes, class IDs, confidence levels, and positions
         boxes = results.boxes.data.cpu().numpy()
         class_ids = boxes[:, -1].astype(int)
         confidences = results.boxes.conf.cpu().numpy()
         xyxy = boxes[:, :4]
-
+        # Create detections object
         detections = Detections(
             xyxy=xyxy,
             confidence=confidences,
@@ -124,33 +124,41 @@ def main():
         )
 
         # Filter detections by confidence threshold
-        detections = detections[detections.confidence > 0.1]
+        detections = detections[detections.confidence > args.confidence]
 
+        # Get a list of all possible labels
         labels = [results.names[class_id] for class_id in class_ids]
 
+        # Store a list of labels to be added to the annotations
         labels_to_annotate = list()
+
+        # Check if any detections were found in this frame
         if detections.xyxy is not None and len(detections.xyxy) > 0:
-            for i in range(len(detections.xyxy)):  # Loop through each detection
+            # Loop through each detection
+            for i in range(len(detections.xyxy)):
                 # Get bounding box coordinates
                 bbox = detections.xyxy[i]
 
                 # Get confidence score and convert to percentage
                 confidence = detections.confidence[i] * 100
 
-                # Get class ID and map to label
-                # Get class ID and map to label (debugging added)
-                class_id = int(detections.class_id[i])  # Ensure `class_id` is converted to integer
+                # Get class ID
+                class_id = int(detections.class_id[i])
+                # Get label
                 label = labels[i]
+                # Add labels to annotations
                 labels_to_annotate.append(label)
 
                 # Display the results
-                print(f"Detection {i + 1}:")
-                print(f"  Label: {label}")
-                print(f"  Confidence: {confidence:.2f}%")
-                print(f"  Bounding Box: [{bbox[0]:.2f}, {bbox[1]:.2f}, {bbox[2]:.2f}, {bbox[3]:.2f}]")
-                print("-" * 30)
+                if args.print_detections:
+                    print(f"Detection {i + 1}:")
+                    print(f"  Label: {label}")
+                    print(f"  Confidence: {confidence:.2f}%")
+                    print(f"  Bounding Box: [{bbox[0]:.2f}, {bbox[1]:.2f}, {bbox[2]:.2f}, {bbox[3]:.2f}]")
+                    print("-" * 30)
         else:
-            print("No detections found.")
+            if args.print_detections:
+                print("No detections found.")
 
         # Track objects
         tracked_detections = byte_tracker.update_with_detections(detections)
@@ -158,23 +166,25 @@ def main():
         # Count objects crossing the line
         line_counter.trigger(detections=tracked_detections)
 
-        # Annotate frame with detections and line
+        # Annotate frame with bounding boxes, labels, and line.
         annotated_frame = frame.copy()
         annotated_frame = box_annotator.annotate(scene=annotated_frame, detections=detections)
         annotated_frame = label_annotator.annotate(scene=annotated_frame, detections=detections, labels=labels_to_annotate)
         annotated_frame = line_annotator.annotate(annotated_frame, line_counter)
 
-        # Add count text
+        # Add count text to line
         annotated_frame = sv.draw_text(
             scene=annotated_frame,
             text=f"Crosses: {line_counter.in_count + line_counter.out_count}",
             text_anchor=Point(x=0, y=0)
         )
+        # Show the frame
         cv2.imshow("ByteDetect", annotated_frame)
+        # Check for exit command
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-
+    # Exit program
     test_cap.release()
     cv2.destroyAllWindows()
 
