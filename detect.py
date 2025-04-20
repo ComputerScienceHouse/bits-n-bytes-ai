@@ -126,9 +126,8 @@ def main():
         detections = detections[detections.confidence > 0.6]
 
         labels = [results.names[class_id] for class_id in class_ids]
-        # print(detections)
-        # print(labels)
 
+        labels_to_annotate = list()
         if detections.xyxy is not None and len(detections.xyxy) > 0:
             for i in range(len(detections.xyxy)):  # Loop through each detection
                 # Get bounding box coordinates
@@ -138,8 +137,10 @@ def main():
                 confidence = detections.confidence[i] * 100
 
                 # Get class ID and map to label
-                class_id = detections.class_id[i]
-                label = labels[class_id]  # `labels` should be provided (mapped via YOLO's results)
+                # Get class ID and map to label (debugging added)
+                class_id = int(detections.class_id[i])  # Ensure `class_id` is converted to integer
+                label = labels[i]
+                labels_to_annotate.append(label)
 
                 # Display the results
                 print(f"Detection {i + 1}:")
@@ -151,14 +152,15 @@ def main():
             print("No detections found.")
 
         # Track objects
-        detections = byte_tracker.update_with_detections(detections)
+        detections_updated = byte_tracker.update_with_detections(detections)
 
         # Count objects crossing the line
         line_counter.trigger(detections=detections)
 
         # Annotate frame with detections and line
         annotated_frame = frame.copy()
-        annotated_frame = box_annotator.annotate(annotated_frame, detections)
+        annotated_frame = box_annotator.annotate(scene=annotated_frame, detections=detections)
+        annotated_frame = label_annotator.annotate(scene=annotated_frame, detections=detections, labels=labels_to_annotate)
         annotated_frame = line_annotator.annotate(annotated_frame, line_counter)
 
         # Add count text
@@ -167,7 +169,9 @@ def main():
             text=f"Crosses: {line_counter.in_count + line_counter.out_count}",
             text_anchor=Point(x=0, y=0)
         )
-        print("frame processed")
+        cv2.imshow("ByteDetect", annotated_frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 
     test_cap.release()
