@@ -1,11 +1,15 @@
 # Bits 'n Bytes (AI)
-Bits 'n Bytes is a next generation vending machine by Computer Science House. This repository contains the software for our AI pipeline that uses [WongKinYiu/yolov7](https://github.com/WongKinYiu/yolov7)in conjunction with a custom detection algorithm and training dataset. YOLO is meant for autonomous vehicles, but our training set focuses on consumer items such as Sour Patch Kids, Brownie Brittle, and Little Bites.
+Bits 'n Bytes is a next generation vending machine by Computer Science House. This repository contains the software for our AI pipeline that uses a custom version of Ultralytics YOLO to detect commercially available items like Sour Path Kids, Brownie Brittle, and Mike and Ikes.
 # Local Setup
 To contribute to this repository, you will first need to set up a local running version.
-## 1. Clone this repository
+## 1. Prerequisites: Python 3.10
+Python 3.10 is required for this to run on your system. If you're on MacOS, you probably already have Python 3.10! Open a terminal sessions and type `python3.10 --version` to make sure it exists.
+## 2. Clone this repository
 Clone this repository somewhere on your system.
-## 2. Install Git submodules
-In order to run any of the software, we rely on you also having [yolov7](https://github.com/WongKinYiu/yolov7) installed within the same directory. The easiest and least error-prone way to do this is navigate into your checkout for this repository and run:
-```
-git submodule update --init --recursive
+## 3. Create a Python 3.10 virtual environment and install dependencies
+Create a virtual environment for this project using your Python 3.10 install.
+```bash
+python3.10 -m venv .venv # Create virtual environment
+source .venv/bin/activate # Activate virtual environment
+pip install -r requirements.txt # Install dependencies
 ```
