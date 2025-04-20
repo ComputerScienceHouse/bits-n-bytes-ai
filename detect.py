@@ -90,9 +90,10 @@ def main():
 
     line_start = sv.Point(1000, 0)
     line_end = sv.Point(1000, 2000)
-    line_counter = sv.LineZone(start=line_start, end=line_end)
+    line_counter = sv.LineZone(start=line_start, end=line_end, minimum_crossing_threshold=1)
 
-    byte_tracker = sv.ByteTrack()
+    byte_tracker = sv.ByteTrack(track_activation_threshold=0.07, lost_track_buffer=100)
+
 
     # Create annotators for visualization
     box_annotator = sv.BoxAnnotator()
@@ -152,10 +153,10 @@ def main():
             print("No detections found.")
 
         # Track objects
-        line_counter_detections = byte_tracker.update_with_detections(detections)
+        tracked_detections = byte_tracker.update_with_detections(detections)
 
         # Count objects crossing the line
-        line_counter.trigger(detections=line_counter_detections)
+        line_counter.trigger(detections=tracked_detections)
 
         # Annotate frame with detections and line
         annotated_frame = frame.copy()
