@@ -15,8 +15,8 @@ from pathlib import Path
 
 import numpy as np
 import supervision as sv
-from supervision import Point
-
+from supervision import Point, Detections
+from ultralytics import YOLO
 
 # Try to import yolov7, which must be pulled using git submodules
 try:
@@ -63,11 +63,11 @@ def main():
         video_source = args.video
 
     # Test camera access
-    print(f"Attempting to open camera at port {args.video}")
-    test_cap = cv2.VideoCapture(int(args.video) if isinstance(args.video, (int, str)) and (
-            args.video == DEFAULT_WEBCAM_PORT or str(args.video).isdigit()) else args.video)
+    print(f"Attempting to open camera at port {video_source}")
+    test_cap = cv2.VideoCapture(video_source if isinstance(video_source, (int, str)) and (
+            video_source == DEFAULT_WEBCAM_PORT or str(video_source).isdigit()) else video_source)
     if not test_cap.isOpened():
-        print(f"Failed to open camera at {args.video}")
+        print(f"Failed to open camera at {video_source}")
         return
     else:
         print("Camera opened successfully!")
@@ -80,9 +80,9 @@ def main():
     # Get model
     # model_path = Path(args.model_path)
 
-    # Load YOLOv7 model
+    # Load YOLO model
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model = custom(args.model_path)
+    model = YOLO(args.model_path)
 
     if torch.cuda.is_available():
         model = model.half().to(device)
@@ -106,33 +106,49 @@ def main():
             print("Failed to read frame")
             continue
 
-        # 1. Resize the frame to the model's expected input size
-        input_size = (640, 640)  # Typical for YOLOv7
-        frame_resized = cv2.resize(frame, input_size)
-
-        # 2. Convert the frame to a PyTorch tensor
-        frame_tensor = torch.from_numpy(frame_resized).float()
-
-        # 3. Normalize pixel values to [0, 1]
-        frame_tensor /= 255.0  # Scale pixel values
-
-        # 4. Rearrange dimensions to (B, C, H, W)
-        frame_tensor = frame_tensor.permute(2, 0, 1)  # (H, W, C) -> (C, H, W)
-        frame_tensor = frame_tensor.unsqueeze(0)  # Add batch dimension
-
-        print(frame_tensor)
-        # 5. Pass the frame to the model
-        results = model(frame_tensor)
+        results = model(frame, verbose=False)[0]
 
         if not results:
             continue
 
-        print(results[0])
-        # Format detections
-        detections = sv.Detections(results)
+        boxes = results.boxes.data.cpu().numpy()
+        class_ids = boxes[:, -1].astype(int)
+        confidences = results.boxes.conf.cpu().numpy()
+        xyxy = boxes[:, :4]
+
+        detections = Detections(
+            xyxy=xyxy,
+            confidence=confidences,
+            class_id=class_ids
+        )
 
         # Filter detections by confidence threshold
         detections = detections[detections.confidence > 0.6]
+
+        labels = [results.names[class_id] for class_id in class_ids]
+        # print(detections)
+        # print(labels)
+
+        if detections.xyxy is not None and len(detections.xyxy) > 0:
+            for i in range(len(detections.xyxy)):  # Loop through each detection
+                # Get bounding box coordinates
+                bbox = detections.xyxy[i]
+
+                # Get confidence score and convert to percentage
+                confidence = detections.confidence[i] * 100
+
+                # Get class ID and map to label
+                class_id = detections.class_id[i]
+                label = labels[class_id]  # `labels` should be provided (mapped via YOLO's results)
+
+                # Display the results
+                print(f"Detection {i + 1}:")
+                print(f"  Label: {label}")
+                print(f"  Confidence: {confidence:.2f}%")
+                print(f"  Bounding Box: [{bbox[0]:.2f}, {bbox[1]:.2f}, {bbox[2]:.2f}, {bbox[3]:.2f}]")
+                print("-" * 30)
+        else:
+            print("No detections found.")
 
         # Track objects
         detections = byte_tracker.update_with_detections(detections)
