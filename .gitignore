@@ -1,8 +1,5 @@
 /tmp/
 
-# PyTorch models
-*.pt
-
 # MacOS
 .DS_Store
 
