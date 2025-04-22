@@ -58,7 +58,7 @@ def main():
     arg_parser.add_argument(
         "--line",
         type=str,
-        default='300,0,300,700',
+        default='300,0,200,700',
         help="Start and end coordinates of the line in the form x1,y1,x2,y2"
     )
     args = arg_parser.parse_args()
@@ -113,8 +113,7 @@ def main():
         model = model.half().to(device)
 
     # Configure object tracking. Helps smooth object detection getting lost between multiple frames
-    # TODO update lost_track_buffer size based on Jetson framerate
-    byte_tracker = sv.ByteTrack(track_activation_threshold=0.07, lost_track_buffer=100)
+    byte_tracker = sv.ByteTrack(track_activation_threshold=0.2, lost_track_buffer=250)
 
     # Configure line counter
     line_start = sv.Point(int(split_line[0]), int(split_line[1]))
