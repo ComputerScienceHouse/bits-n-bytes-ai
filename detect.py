@@ -23,7 +23,6 @@ import cv2
 DEFAULT_MODEL_PATH = Path("./model.pt")
 DEFAULT_WEBCAM_PORT = 0
 DEFAULT_CONFIDENCE_THRESHOLD = 0.5
-MODEL_INPUT_W_H = (100, 100) # TODO update model expected W/H
 
 
 def main():
@@ -52,7 +51,25 @@ def main():
         default=0.2,
         help="The confidence threshold to filter detections."
     )
+    arg_parser.add_argument(
+        "--line",
+        type=str,
+        default='300,0,300,700',
+        help="Start and end coordinates of the line in the form x1,y1,x2,y2"
+    )
     args = arg_parser.parse_args()
+
+    # Verify that the line argument was entered correctly
+    split_line = args.line.split(',')
+    if len(split_line) != 4:
+        print("Incorrect usage of --line argument")
+        exit(1)
+    for coord_str in split_line:
+        try:
+            result = int(coord_str)
+        except ValueError:
+            print("Incorrect usage of --line argument")
+            exit(1)
 
     # For webcam access
     if args.video == DEFAULT_WEBCAM_PORT or args.video.isdigit():
@@ -89,8 +106,8 @@ def main():
     byte_tracker = sv.ByteTrack(track_activation_threshold=0.07, lost_track_buffer=100)
 
     # Configure line counter
-    line_start = sv.Point(1000, 0)
-    line_end = sv.Point(1000, 2000)
+    line_start = sv.Point(int(split_line[0]), int(split_line[1]))
+    line_end = sv.Point(int(split_line[2]), int(split_line[3]))
     line_counter = sv.LineZone(start=line_start, end=line_end, minimum_crossing_threshold=1)
 
     # Create annotators for visualization
