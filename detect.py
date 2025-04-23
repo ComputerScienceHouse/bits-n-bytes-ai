@@ -103,6 +103,7 @@ def main():
             print(f"Successfully read frame with shape {frame.shape}")
         else:
             print("Failed to read frame from camera")
+    print(f"Camera FPS: {test_cap.get(cv2.CAP_PROP_FPS)}")
 
     # Load YOLO v11 model
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -113,7 +114,12 @@ def main():
         model = model.half().to(device)
 
     # Configure object tracking. Helps smooth object detection getting lost between multiple frames
-    byte_tracker = sv.ByteTrack(track_activation_threshold=0.2, lost_track_buffer=250)
+    byte_tracker = sv.ByteTrack(
+        track_activation_threshold=0.2,
+        lost_track_buffer=70, 
+        minimum_matching_threshold=0.7,
+        minimum_consecutive_frames=1
+    )
 
     # Configure line counter
     line_start = sv.Point(int(split_line[0]), int(split_line[1]))
