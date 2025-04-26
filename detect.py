@@ -116,9 +116,9 @@ def main():
     # Configure object tracking. Helps smooth object detection getting lost between multiple frames
     byte_tracker = sv.ByteTrack(
         track_activation_threshold=0.2,
-        lost_track_buffer=70,
+        lost_track_buffer=100,
         minimum_matching_threshold=0.7,
-        minimum_consecutive_frames=1
+        minimum_consecutive_frames=3
     )
 
     # Configure line counter
