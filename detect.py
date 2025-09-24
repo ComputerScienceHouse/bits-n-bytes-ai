@@ -10,6 +10,7 @@
 # Rochester Institute of Technology.
 #
 ###############################################################################
+
 from pathlib import Path
 import supervision as sv
 from supervision import Point, Detections
@@ -163,7 +164,13 @@ def main():
         labels = [results.names[class_id] for class_id in class_ids]
 
         # Store a list of labels to be added to the annotations
-        labels_to_annotate = list()
+        labels_to_annotate = []
+        for i in range(len(detections)):
+            cls_id = int(detections.class_id[i])
+            name = results.names[cls_id]
+            conf_pct = detections.confidence[i] * 100
+            labels_to_annotate.append(f"{name} {conf_pct: .0f}%")
+
 
         # Check if any detections were found in this frame
         if detections.xyxy is not None and len(detections.xyxy) > 0:
@@ -180,7 +187,7 @@ def main():
                 # Get label
                 label = labels[i]
                 # Add labels to annotations
-                labels_to_annotate.append(label)
+                # labels_to_annotate.append(label)
 
                 # Display the results
                 if args.print_detections:
