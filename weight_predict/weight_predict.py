@@ -11,6 +11,9 @@ import time
 MAX_ITEM_REMOVALS_TO_CHECK = 3
 THRESHOLD_WEIGHT_PROBABILITY = 30
 
+ESP_SERIAL_PORT = "/dev/ttyTHS1"
+PI_SERIAL_PORT = ""
+
 class Slot:
 
     _previous_weight_value: float
@@ -124,7 +127,7 @@ def main():
 
     # Set up uart ports
     esp_uart_port = serial.Serial(
-        port="/dev/ttyTHS1",
+        port=ESP_SERIAL_PORT,
         baudrate=115200,
         bytesize=serial.EIGHTBITS,
         parity=serial.PARITY_NONE,
@@ -132,7 +135,7 @@ def main():
         timeout=1
     )
     pi_uart_port = serial.Serial(
-        port="/dev/ttyTHS0",
+        port=PI_SERIAL_PORT,
         baudrate=9600,
         bytesize=serial.EIGHTBITS,
         parity=serial.PARITY_NONE,
@@ -174,7 +177,7 @@ def main():
                         'quantity': item_change.quantity
                     }
                     json_str = json.dumps(json_data) + "\n"
-                    
+
                     # Send it to pi
                     pi_uart_port.write(json_str.encode('utf-8'))
 
