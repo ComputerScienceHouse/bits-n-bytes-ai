@@ -1,7 +1,7 @@
 import json
 from time import sleep
 import serial
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from data_classes import Item
 import math
 import database as db
@@ -14,11 +14,15 @@ class Slot:
 
     _previous_weight_value: float
     _items: List[Item]
+    _items_by_id: Dict[int, Item]
 
     def __init__(self, starting_value: float = 0.0):
         self._previous_weight_value = starting_value
         self._items = list()
         self._items = db.get_items()
+
+        for item in self._items:
+            self._items_by_id[item.item_id] = item
 
 
     def predict_most_likely_item(self, new_weight: float) -> List[Item]:
@@ -58,7 +62,7 @@ class Slot:
 
         # Iterate through the top probabilities in decreasing order
         for rank, ((item_id, quantity), probability) in enumerate(top_n_probabilities.items(), start=1):
-            print(f'{quantity}x {db.get_item(item_id).name} (p={probability})')
+            # print(f'{quantity}x {db.get_item(item_id).name} (p={probability})')
             if abs(probability) > THRESHOLD_WEIGHT_PROBABILITY:
                 # If this probability is less than the threshold, all others will be too so return early
                 break
@@ -77,7 +81,7 @@ class Slot:
             # Get the quantity for this item
             quantity = item_ids_and_quantities[item_id]
             # Get the existing item object
-            existing_item_obj = db.get_item(item_id)
+            existing_item_obj = self._items_by_id[item_id]
             # Create a new item object with this quantity, and add it to the list of items to be
             # returned
             items.append(
