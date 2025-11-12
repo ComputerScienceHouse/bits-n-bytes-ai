@@ -122,7 +122,7 @@ def main():
 
     mac_address_to_shelves = dict()
 
-    # Set up uart port
+    # Set up uart ports
     esp_uart_port = serial.Serial(
         port="/dev/ttyTHS1",
         baudrate=115200,
@@ -131,7 +131,14 @@ def main():
         stopbits=serial.STOPBITS_ONE,
         timeout=1
     )
-
+    pi_uart_port = serial.Serial(
+        port="/dev/ttyTHS0",
+        baudrate=9600,
+        bytesize=serial.EIGHTBITS,
+        parity=serial.PARITY_NONE,
+        stopbits=serial.STOPBITS_ONE,
+        timeout=1
+    )
 
     while True:
 
@@ -161,6 +168,15 @@ def main():
             for i, new_weight in enumerate(json_data['slot_weights_g']):
                 item_changes = shelf.slots[i].predict_most_likely_item(new_weight)
                 for item_change in item_changes:
+                    # Construct out JSON
+                    json_data = {
+                        'id': item_change.item_id,
+                        'quantity': item_change.quantity
+                    }
+                    json_str = json.dumps(json_data) + "\n"
+                    
+                    # Send it to pi
+                    pi_uart_port.write(json_str.encode('utf-8'))
 
                     time_str = time.strftime("%H:%M:%S.") + f"{int((time.time() * 1000) % 1000):03d}"
                     if item_change.quantity > 0:
