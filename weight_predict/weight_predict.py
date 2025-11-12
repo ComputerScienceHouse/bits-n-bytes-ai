@@ -1,5 +1,5 @@
 import json
-
+from time import sleep
 import serial
 from typing import List, Tuple
 from data_classes import Item
@@ -122,11 +122,14 @@ def main():
         baudrate=115200,
         bytesize=serial.EIGHTBITS,
         parity=serial.PARITY_NONE,
-        stopbits=serial.STOPBITS_ONE
+        stopbits=serial.STOPBITS_ONE,
+        timeout=1
     )
 
 
     while True:
+
+        sleep(0.1)
 
         line = esp_uart_port.readline().decode('utf-8', errors='ignore').strip()
 
