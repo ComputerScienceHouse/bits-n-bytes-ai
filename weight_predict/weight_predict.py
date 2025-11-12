@@ -161,9 +161,9 @@ def main():
                 item_changes = shelf.slots[i].predict_most_likely_item(new_weight)
                 for item_change in item_changes:
                     if item_change.quantity > 0:
-                        print(f"Remove {item_change.quantity} from cart")
+                        print(f"Remove {abs(item_change.quantity)} {item_change.name} from cart")
                     else:
-                        print(f"Add {item_change.quantity} to cart")
+                        print(f"Add {abs(item_change.quantity)} {item_change.name} to cart")
 
         else:
             # New shelf, just save this as the previous slot data
