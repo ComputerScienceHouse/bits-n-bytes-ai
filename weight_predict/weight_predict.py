@@ -127,6 +127,12 @@ def main():
 
 
     while True:
+
+        line = esp_uart_port.readline().decode('utf-8', errors='ignore').strip()
+
+        if not line:
+            continue
+
         # Read weight data from ESP if available
         if esp_uart_port.in_waiting > 0:
             data = esp_uart_port.read(esp_uart_port.in_waiting).decode('utf-8', errors='ignore').strip()
