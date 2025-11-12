@@ -1,5 +1,7 @@
 /tmp/
 
+**/config.py
+
 # MacOS
 .DS_Store
 
