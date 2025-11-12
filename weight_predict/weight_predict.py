@@ -20,6 +20,7 @@ class Slot:
         self._previous_weight_value = starting_value
         self._items = list()
         self._items = db.get_items()
+        self._items_by_id = dict()
 
         for item in self._items:
             self._items_by_id[item.item_id] = item
