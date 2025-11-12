@@ -118,7 +118,7 @@ def main():
 
     # Set up uart port
     esp_uart_port = serial.Serial(
-        port="dev/ttyTHS1",
+        port="/dev/ttyTHS1",
         baudrate=115200,
         bytesize=serial.EIGHTBITS,
         parity=serial.PARITY_NONE,
