@@ -6,6 +6,7 @@ from data_classes import Item
 import math
 import database as db
 import pandas as pd
+import time
 
 MAX_ITEM_REMOVALS_TO_CHECK = 3
 THRESHOLD_WEIGHT_PROBABILITY = 30
@@ -160,10 +161,12 @@ def main():
             for i, new_weight in enumerate(json_data['slot_weights_g']):
                 item_changes = shelf.slots[i].predict_most_likely_item(new_weight)
                 for item_change in item_changes:
+
+                    time_str = time.strftime("%H:%M:%S.") + f"{int((time.time() * 1000) % 1000):03d}"
                     if item_change.quantity > 0:
-                        print(f"Remove {abs(item_change.quantity)} {item_change.name} from cart")
+                        print(f"{time_str}: Remove {abs(item_change.quantity)} {item_change.name} from cart")
                     else:
-                        print(f"Add {abs(item_change.quantity)} {item_change.name} to cart")
+                        print(f"{time_str}: Add {abs(item_change.quantity)} {item_change.name} to cart")
 
         else:
             # New shelf, just save this as the previous slot data
