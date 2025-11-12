@@ -136,37 +136,34 @@ def main():
         if not line:
             continue
 
-        # Read weight data from ESP if available
-        if esp_uart_port.in_waiting > 0:
-            data = esp_uart_port.read(esp_uart_port.in_waiting).decode('utf-8', errors='ignore').strip()
-            try:
-                json_data = json.loads(data)
-            except json.JSONDecodeError:
-                print("Unable to decode JSON", data)
-                continue
+        try:
+            json_data = json.loads(line)
+        except json.JSONDecodeError:
+            print("Unable to decode JSON", line)
+            continue
 
-            # Check that json has necessary fields
-            if not 'mac_address' in json_data or not 'slot_weights_g' in json_data:
-                print("JSON does not have mac_address or slot_weights_g")
-                continue
+        # Check that json has necessary fields
+        if not 'mac_address' in json_data or not 'slot_weights_g' in json_data:
+            print("JSON does not have mac_address or slot_weights_g")
+            continue
 
-            mac_address = json_data['mac_address']
-            if mac_address in mac_address_to_shelves:
+        mac_address = json_data['mac_address']
+        if mac_address in mac_address_to_shelves:
 
-                shelf = mac_address_to_shelves[mac_address]
+            shelf = mac_address_to_shelves[mac_address]
 
-                for i, new_weight in enumerate(json_data['slot_weights_g']):
-                    item_changes = shelf.slots[i].predict_most_likely_item(new_weight)
-                    for item_change in item_changes:
-                        if item_change.quantity > 0:
-                            print(f"Remove {item_change.quantity} from cart")
-                        else:
-                            print(f"Add {item_change.quantity} to cart")
+            for i, new_weight in enumerate(json_data['slot_weights_g']):
+                item_changes = shelf.slots[i].predict_most_likely_item(new_weight)
+                for item_change in item_changes:
+                    if item_change.quantity > 0:
+                        print(f"Remove {item_change.quantity} from cart")
+                    else:
+                        print(f"Add {item_change.quantity} to cart")
 
-            else:
-                # New shelf, just save this as the previous slot data
-                shelf = Shelf(mac_address, json_data['slot_weights_g'])
-                mac_address_to_shelves[mac_address] = shelf
+        else:
+            # New shelf, just save this as the previous slot data
+            shelf = Shelf(mac_address, json_data['slot_weights_g'])
+            mac_address_to_shelves[mac_address] = shelf
 
 
 if __name__ == '__main__':
