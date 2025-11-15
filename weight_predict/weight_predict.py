@@ -174,7 +174,7 @@ def main():
                     # Construct out JSON
                     json_data = {
                         'id': item_change.item_id,
-                        'quantity': item_change.quantity
+                        'quantity': -item_change.quantity # Note that UI expects positive = add to cart, negative = remove from cart
                     }
                     json_str = json.dumps(json_data) + "\n"
 
