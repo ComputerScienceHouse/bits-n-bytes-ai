@@ -183,9 +183,9 @@ def main():
 
                     time_str = time.strftime("%H:%M:%S.") + f"{int((time.time() * 1000) % 1000):03d}"
                     if item_change.quantity > 0:
-                        print(f"{time_str}: Remove {abs(item_change.quantity)} {item_change.name} from cart")
-                    else:
                         print(f"{time_str}: Add {abs(item_change.quantity)} {item_change.name} to cart")
+                    else:
+                        print(f"{time_str}: Remove {abs(item_change.quantity)} {item_change.name} from cart")
 
         else:
             # New shelf, just save this as the previous slot data
