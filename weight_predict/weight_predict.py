@@ -140,6 +140,7 @@ def load_stock_file(file_path: Path = Path("stock.json")):
                 item = db.get_item(item_id=json_item["id"])
                 item.quantity = json_item["quantity"]
                 print("Loaded data from stock store")
+                items.append(item)
 
             # Create slot with items
             slot = Slot(items=items)
