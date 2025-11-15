@@ -164,25 +164,26 @@ def main():
 
             shelf = mac_address_to_shelves[mac_address]
             slot = shelf.slots[json_data['slot_id']]
+            print(f"delta: {json_data['delta_g']}")
 
-            item_changes = slot.predict_most_likely_item(json_data['delta_g'])
-
-            for item_change in item_changes:
-                # Construct out JSON
-                json_data = {
-                    'id': item_change.item_id,
-                    'quantity': -item_change.quantity # Note that UI expects positive = add to cart, negative = remove from cart
-                }
-                json_str = json.dumps(json_data) + "\n"
-
-                # Send it to pi
-                pi_uart_port.write(json_str.encode('utf-8'))
-
-                time_str = time.strftime("%H:%M:%S.") + f"{int((time.time() * 1000) % 1000):03d}"
-                if item_change.quantity > 0:
-                    print(f"{time_str}: Remove {abs(item_change.quantity)} {item_change.name} from cart")
-                else:
-                    print(f"{time_str}: Add {abs(item_change.quantity)} {item_change.name} to cart")
+            # # item_changes = slot.predict_most_likely_item(json_data['delta_g'])
+            #
+            # for item_change in item_changes:
+            #     # Construct out JSON
+            #     json_data = {
+            #         'id': item_change.item_id,
+            #         'quantity': -item_change.quantity # Note that UI expects positive = add to cart, negative = remove from cart
+            #     }
+            #     json_str = json.dumps(json_data) + "\n"
+            #
+            #     # Send it to pi
+            #     pi_uart_port.write(json_str.encode('utf-8'))
+            #
+            #     time_str = time.strftime("%H:%M:%S.") + f"{int((time.time() * 1000) % 1000):03d}"
+            #     if item_change.quantity > 0:
+            #         print(f"{time_str}: Remove {abs(item_change.quantity)} {item_change.name} from cart")
+            #     else:
+            #         print(f"{time_str}: Add {abs(item_change.quantity)} {item_change.name} to cart")
 
         else:
             # New shelf
