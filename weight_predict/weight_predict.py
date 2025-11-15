@@ -48,7 +48,7 @@ class Slot:
             # Store probabilities
             probabilities[item.item_id] = []
             # Iterate through all possible quantities
-            for potential_quantity in range(1, item.quantity + 1):
+            for potential_quantity in range(1, MAX_ITEM_REMOVALS_TO_CHECK + 1):
                 expected_weight = item.avg_weight * potential_quantity
                 scaled_std = item.std_weight * (potential_quantity ** 0.5)
 
