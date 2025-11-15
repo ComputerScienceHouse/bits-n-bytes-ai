@@ -127,10 +127,10 @@ def load_stock_file(file_path: Path = Path("stock.json")):
     with open(file_path) as file:
         json_data = json.load(file)
 
-    slots = list()
     shelves = list()
     # Iterate through each shelf
     for shelf_mac in json_data:
+        slots = list()
         # Iterate through each slot
         for slot_i, json_slot in enumerate(json_data[shelf_mac]):
 
