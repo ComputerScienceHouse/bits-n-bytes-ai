@@ -7,6 +7,7 @@ import math
 import database as db
 import pandas as pd
 import time
+from pathlib import Path
 
 MAX_ITEM_REMOVALS_TO_CHECK = 3
 THRESHOLD_WEIGHT_PROBABILITY = 30
@@ -19,12 +20,14 @@ class Slot:
     _items: List[Item]
     _items_by_id: Dict[int, Item]
 
-    def __init__(self, starting_value: float = 0.0):
-        self._previous_weight_value = starting_value
+    def __init__(self, items: List[Item] = None):
         self._items = list()
-        self._items = db.get_items()
-        self._items_by_id = dict()
 
+        if items is not None:
+            for item in items:
+                self._items.append(item)
+
+        self._items_by_id = dict()
         for item in self._items:
             self._items_by_id[item.item_id] = item
 
@@ -45,7 +48,7 @@ class Slot:
             # Store probabilities
             probabilities[item.item_id] = []
             # Iterate through all possible quantities
-            for potential_quantity in range(1, MAX_ITEM_REMOVALS_TO_CHECK + 1):
+            for potential_quantity in range(1, item.quantity + 1):
                 expected_weight = item.avg_weight * potential_quantity
                 scaled_std = item.std_weight * (potential_quantity ** 0.5)
 
@@ -106,20 +109,57 @@ class Slot:
 
 class Shelf:
 
-    _mac_address: str
+    _mac_address: bytes
     slots: list[Slot]
 
-    def __init__(self, mac_address: str, num_slots = 4):
+    def __init__(self, mac_address: bytes, slots: List[Slot] = None):
         self._mac_address = mac_address
         self.slots = list()
 
-        for i in range(num_slots):
-            self.slots.append(Slot())
+        if slots is not None:
+            for slot in slots:
+                self.slots.append(slot)
+
+
+def load_stock_file(file_path: Path = Path("stock.json")):
+
+    # Open stock file
+    with open(file_path) as file:
+        json_data = json.load(file)
+
+    slots = list()
+    shelves = list()
+    # Iterate through each shelf
+    for shelf_mac in json_data:
+        # Iterate through each slot
+        for slot_i, json_slot in enumerate(json_data[shelf_mac]):
+
+            # Load in all items
+            items = list()
+            for json_item in json_slot:
+                item = db.get_item(item_id=json_item["id"])
+                item.quantity = json_item["quantity"]
+                print("Loaded data from stock store")
+
+            # Create slot with items
+            slot = Slot(items=items)
+            slots.append(slot)
+        # Create shelf with slots
+
+        shelf = Shelf(shelf_mac, slots=slots)
+        shelves.append(shelf)
+    return shelves
+
+
 
 
 def main():
 
+    # Create dictionary of known shelves
     mac_address_to_shelves = dict()
+    known_shelves = load_stock_file()
+    for shelf in known_shelves:
+        mac_address_to_shelves[shelf._mac_address] = shelf
 
     # Set up uart ports
     esp_uart_port = serial.Serial(
@@ -186,6 +226,7 @@ def main():
 
         else:
             # New shelf
+            print("Unknown shelf joined")
             shelf = Shelf(mac_address)
             mac_address_to_shelves[mac_address] = shelf
 
