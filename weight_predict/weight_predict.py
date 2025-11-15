@@ -109,10 +109,10 @@ class Slot:
 
 class Shelf:
 
-    _mac_address: bytes
+    _mac_address: str
     slots: list[Slot]
 
-    def __init__(self, mac_address: bytes, slots: List[Slot] = None):
+    def __init__(self, mac_address: str, slots: List[Slot] = None):
         self._mac_address = mac_address
         self.slots = list()
 
