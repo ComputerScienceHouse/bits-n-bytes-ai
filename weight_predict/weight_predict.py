@@ -16,7 +16,6 @@ PI_SERIAL_PORT = "/dev/ttyUSB0"
 
 class Slot:
 
-    _previous_weight_value: float
     _items: List[Item]
     _items_by_id: Dict[int, Item]
 
@@ -30,13 +29,12 @@ class Slot:
             self._items_by_id[item.item_id] = item
 
 
-    def predict_most_likely_item(self, new_weight: float) -> List[Item]:
+    def predict_most_likely_item(self, weight_delta: float) -> List[Item]:
         """
         Given a change in weight, predict the most likely item that could have been added/removed from the scale.
-        :param new_weight: float new weight in grams
+        :param weight_delta: float new weight in grams
         :return: Tuple: Item, Float; The item that is most likely
         """
-        weight_delta = new_weight - self._previous_weight_value
         direction = 1 if weight_delta > 0 else -1
         abs_weight_delta = abs(weight_delta)
 
@@ -102,8 +100,7 @@ class Slot:
                     existing_item_obj.vision_class
                 )
             )
-            # Return resulting items, where the quantity matches the number predicted to be added/removed from the scale.
-        self._previous_weight_value = new_weight
+        # Return resulting items, where the quantity matches the number predicted to be added/removed from the scale.
         return items
 
 
@@ -112,13 +109,12 @@ class Shelf:
     _mac_address: str
     slots: list[Slot]
 
-    def __init__(self, mac_address: str, starting_slot_values: List[float]):
+    def __init__(self, mac_address: str, num_slots = 4):
         self._mac_address = mac_address
         self.slots = list()
 
-        for i in range(len(starting_slot_values)):
-
-            self.slots.append(Slot(starting_value=starting_slot_values[i]))
+        for i in range(num_slots):
+            self.slots.append(Slot())
 
 
 def main():
@@ -159,37 +155,38 @@ def main():
             continue
 
         # Check that json has necessary fields
-        if not 'mac_address' in json_data or not 'slot_weights_g' in json_data:
-            print("JSON does not have mac_address or slot_weights_g")
+        if not 'shelf_mac' in json_data or not 'slot_id' in json_data or 'delta_g' not in json_data:
+            print("JSON does not have shelf_mac, or slot_id, or delta_g")
             continue
 
-        mac_address = json_data['mac_address']
+        mac_address = json_data['shelf_mac']
         if mac_address in mac_address_to_shelves:
 
             shelf = mac_address_to_shelves[mac_address]
+            slot = shelf.slots[json_data['slot_id']]
 
-            for i, new_weight in enumerate(json_data['slot_weights_g']):
-                item_changes = shelf.slots[i].predict_most_likely_item(new_weight)
-                for item_change in item_changes:
-                    # Construct out JSON
-                    json_data = {
-                        'id': item_change.item_id,
-                        'quantity': -item_change.quantity # Note that UI expects positive = add to cart, negative = remove from cart
-                    }
-                    json_str = json.dumps(json_data) + "\n"
+            item_changes = slot.predict_most_likely_item(json_data['delta_g'])
 
-                    # Send it to pi
-                    pi_uart_port.write(json_str.encode('utf-8'))
+            for item_change in item_changes:
+                # Construct out JSON
+                json_data = {
+                    'id': item_change.item_id,
+                    'quantity': -item_change.quantity # Note that UI expects positive = add to cart, negative = remove from cart
+                }
+                json_str = json.dumps(json_data) + "\n"
 
-                    time_str = time.strftime("%H:%M:%S.") + f"{int((time.time() * 1000) % 1000):03d}"
-                    if item_change.quantity > 0:
-                        print(f"{time_str}: Remove {abs(item_change.quantity)} {item_change.name} from cart")
-                    else:
-                        print(f"{time_str}: Add {abs(item_change.quantity)} {item_change.name} to cart")
+                # Send it to pi
+                pi_uart_port.write(json_str.encode('utf-8'))
+
+                time_str = time.strftime("%H:%M:%S.") + f"{int((time.time() * 1000) % 1000):03d}"
+                if item_change.quantity > 0:
+                    print(f"{time_str}: Remove {abs(item_change.quantity)} {item_change.name} from cart")
+                else:
+                    print(f"{time_str}: Add {abs(item_change.quantity)} {item_change.name} to cart")
 
         else:
-            # New shelf, just save this as the previous slot data
-            shelf = Shelf(mac_address, json_data['slot_weights_g'])
+            # New shelf
+            shelf = Shelf(mac_address)
             mac_address_to_shelves[mac_address] = shelf
 
 
