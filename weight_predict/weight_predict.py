@@ -2,18 +2,34 @@ import json
 from time import sleep
 import serial
 from typing import List, Tuple, Dict
+import threading
+import websockets
+
 from data_classes import Item
 import math
 import database as db
 import pandas as pd
 import time
 from pathlib import Path
+import asyncio
+import websockets
 
 MAX_ITEM_REMOVALS_TO_CHECK = 3
 THRESHOLD_WEIGHT_PROBABILITY = 30
 
 ESP_SERIAL_PORT = "/dev/ttyTHS1"
 PI_SERIAL_PORT = "/dev/ttyUSB0"
+
+message_queue = asyncio.Queue()
+
+async def ui_handler(websocket):
+    while True:
+        message = await message_queue.get()
+        await websocket.send(message)
+
+async def websocket_server():
+    async with websockets.serve(ui_handler, "localhost", 8765):
+        await asyncio.Future()
 
 class Slot:
 
@@ -33,63 +49,39 @@ class Slot:
 
 
     def predict_most_likely_item(self, weight_delta: float) -> List[Item]:
-        """
-        Given a change in weight, predict the most likely item that could have been added/removed from the scale.
-        :param weight_delta: float new weight in grams
-        :return: Tuple: Item, Float; The item that is most likely
-        """
         direction = 1 if weight_delta > 0 else -1
         abs_weight_delta = abs(weight_delta)
 
-        # Store probabilities of the various quantities of items being added/removed from the slot
         probabilities = dict()
-        # Iterate through all possible items
         for item in self._items:
-            # Store probabilities
             probabilities[item.item_id] = []
-            # Iterate through all possible quantities
             for potential_quantity in range(1, MAX_ITEM_REMOVALS_TO_CHECK + 1):
                 expected_weight = item.avg_weight * potential_quantity
                 scaled_std = item.std_weight * (potential_quantity ** 0.5)
 
-                # Calculate log-likelihood using normal distribution
                 z_score = (abs_weight_delta - expected_weight) / scaled_std if scaled_std > 0 else float('inf')
                 log_likelihood = -0.5 * (z_score ** 2) - math.log(scaled_std)
-                # Store this probability
                 probabilities[item.item_id].append(log_likelihood)
-        # Convert probabilities to pandas dataframe
+
         df = pd.DataFrame(probabilities, index=range(1, MAX_ITEM_REMOVALS_TO_CHECK + 1)).T
-        # Convert to stack to get top n probabilities
         probability_series = df.stack()
         top_n = 1
         top_n_probabilities = probability_series.nlargest(top_n)
         items: List[Item] = list()
         item_ids_and_quantities = dict()
 
-        # Iterate through the top probabilities in decreasing order
         for rank, ((item_id, quantity), probability) in enumerate(top_n_probabilities.items(), start=1):
-            # print(f'{quantity}x {db.get_item(item_id).name} (p={probability})')
             if abs(probability) > THRESHOLD_WEIGHT_PROBABILITY:
-                # If this probability is less than the threshold, all others will be too so return early
                 break
             else:
-                # Probability is above the threshold, add this item/quantity combination as something that
-                # probably happened.
                 if item_id in item_ids_and_quantities:
-                    # Item id already exists, increase quantity
                     item_ids_and_quantities[item_id] += (direction * quantity)
                 else:
-                    # Item id does not already exist, add this quantity
                     item_ids_and_quantities[item_id] = (direction * quantity)
 
-            # Create item objects that represent each of the changes
         for item_id in item_ids_and_quantities:
-            # Get the quantity for this item
             quantity = item_ids_and_quantities[item_id]
-            # Get the existing item object
             existing_item_obj = self._items_by_id[item_id]
-            # Create a new item object with this quantity, and add it to the list of items to be
-            # returned
             items.append(
                 Item(
                     item_id,
@@ -103,7 +95,6 @@ class Slot:
                     existing_item_obj.vision_class
                 )
             )
-        # Return resulting items, where the quantity matches the number predicted to be added/removed from the scale.
         return items
 
 
@@ -123,18 +114,14 @@ class Shelf:
 
 def load_stock_file(file_path: Path = Path("stock.json")):
 
-    # Open stock file
     with open(file_path) as file:
         json_data = json.load(file)
 
     shelves = list()
-    # Iterate through each shelf
     for shelf_mac in json_data:
         slots = list()
-        # Iterate through each slot
         for slot_i, json_slot in enumerate(json_data[shelf_mac]):
 
-            # Load in all items
             items = list()
             for json_item in json_slot:
                 item = db.get_item(item_id=json_item["id"])
@@ -142,38 +129,33 @@ def load_stock_file(file_path: Path = Path("stock.json")):
                 print("Loaded data from stock store")
                 items.append(item)
 
-            # Create slot with items
             slot = Slot(items=items)
             slots.append(slot)
-        # Create shelf with slots
 
         shelf = Shelf(shelf_mac, slots=slots)
         shelves.append(shelf)
     return shelves
 
 
-
-
 def main():
 
-    # Create dictionary of known shelves
+    loop = asyncio.new_event_loop()
+
+    def run_async():
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(websocket_server())
+
+    t = threading.Thread(target=run_async, daemon=True)
+    t.start()
+
     mac_address_to_shelves = dict()
     known_shelves = load_stock_file()
     for shelf in known_shelves:
         mac_address_to_shelves[shelf._mac_address] = shelf
 
-    # Set up uart ports
     esp_uart_port = serial.Serial(
         port=ESP_SERIAL_PORT,
         baudrate=115200,
-        bytesize=serial.EIGHTBITS,
-        parity=serial.PARITY_NONE,
-        stopbits=serial.STOPBITS_ONE,
-        timeout=1
-    )
-    pi_uart_port = serial.Serial(
-        port=PI_SERIAL_PORT,
-        baudrate=9600,
         bytesize=serial.EIGHTBITS,
         parity=serial.PARITY_NONE,
         stopbits=serial.STOPBITS_ONE,
@@ -195,7 +177,6 @@ def main():
             print("Unable to decode JSON", line)
             continue
 
-        # Check that json has necessary fields
         if not 'shelf_mac' in json_data or not 'slot_id' in json_data or 'delta_g' not in json_data:
             print("JSON does not have shelf_mac, or slot_id, or delta_g")
             continue
@@ -209,15 +190,14 @@ def main():
             item_changes = slot.predict_most_likely_item(json_data['delta_g'])
 
             for item_change in item_changes:
-                # Construct out JSON
-                json_data = {
+                out = {
                     'id': item_change.item_id,
-                    'quantity': -item_change.quantity # Note that UI expects positive = add to cart, negative = remove from cart
+                    'quantity': -item_change.quantity
                 }
-                json_str = json.dumps(json_data) + "\n"
+                json_str = json.dumps(out)
 
-                # Send it to pi
-                pi_uart_port.write(json_str.encode('utf-8'))
+                # Send to UI
+                asyncio.run_coroutine_threadsafe(message_queue.put(json_str), loop)
 
                 time_str = time.strftime("%H:%M:%S.") + f"{int((time.time() * 1000) % 1000):03d}"
                 if item_change.quantity > 0:
@@ -226,7 +206,6 @@ def main():
                     print(f"{time_str}: Add {abs(item_change.quantity)} {item_change.name} to cart")
 
         else:
-            # New shelf
             print("Unknown shelf joined")
             shelf = Shelf(mac_address)
             mac_address_to_shelves[mac_address] = shelf
@@ -234,4 +213,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
