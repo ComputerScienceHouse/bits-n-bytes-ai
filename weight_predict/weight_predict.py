@@ -25,7 +25,7 @@ class Slot:
         self._shelf_id = shelf_id
         self._slot_id = slot_id
         self._inventory = {}
-        self._all_items = slot_items if slot_items is not None else db.get_items()
+        self._all_items = slot_items if slot_items is not None else list()
         self._all_items_by_id = {item.item_id: item for item in self._all_items}
 
     def set_inventory(self, inventory: Dict[int, int]):
