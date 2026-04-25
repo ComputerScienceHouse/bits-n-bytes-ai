@@ -12,6 +12,7 @@
 ###############################################################################
 
 from pathlib import Path
+from typing import List
 import supervision as sv
 from supervision import Point, Detections
 from ultralytics import YOLO
@@ -19,16 +20,18 @@ import torch
 import argparse
 import cv2
 from os import environ
-from paho.mqtt.client import Client as MqttClient
-from paho.mqtt.client import CallbackAPIVersion
+# from paho.mqtt.client import Client as MqttClient
+# from paho.mqtt.client import CallbackAPIVersion
 import json
+
+import pi_serial
 
 DEFAULT_MODEL_PATH = Path("./model.pt")
 DEFAULT_WEBCAM_PORT = 0
 DEFAULT_CONFIDENCE_THRESHOLD = 0.5
-LOCAL_MQTT_BROKER_URL = environ.get("LOCAL_MQTT_BROKER_URL", None)
-LOCAL_MQTT_BROKER_PORT = environ.get("LOCAL_MQTT_BROKER_PORT", 1883)
-MQTT_VISION_DATA_TOPIC = 'vision/data'
+# LOCAL_MQTT_BROKER_URL = environ.get("LOCAL_MQTT_BROKER_URL", None)
+# LOCAL_MQTT_BROKER_PORT = environ.get("LOCAL_MQTT_BROKER_PORT", 1883)
+# MQTT_VISION_DATA_TOPIC = 'vision/data'
 
 def main():
     # Parse command line arguments
@@ -77,11 +80,11 @@ def main():
             exit(1)
 
     # Create MQTT client
-    if LOCAL_MQTT_BROKER_URL is None:
-        mqtt_client = None
-    else:
-        mqtt_client = MqttClient(CallbackAPIVersion.VERSION2)
-        mqtt_client.connect(LOCAL_MQTT_BROKER_URL, LOCAL_MQTT_BROKER_PORT)
+    # if LOCAL_MQTT_BROKER_URL is None:
+    #     mqtt_client = None
+    # else:
+    #     mqtt_client = MqttClient(CallbackAPIVersion.VERSION2)
+    #     mqtt_client.connect(LOCAL_MQTT_BROKER_URL, LOCAL_MQTT_BROKER_PORT)
 
     # For webcam access
     if args.video == DEFAULT_WEBCAM_PORT or args.video.isdigit():
@@ -141,14 +144,14 @@ def main():
             continue
 
         # Get results from model
-        results = model(frame, verbose=False)[0]
+        results = model.predict(frame, verbose=False)[0]
         if not results:
             continue
 
         # Pull out bounding boxes, class IDs, confidence levels, and positions
-        boxes = results.boxes.data.cpu().numpy()
+        boxes = results.boxes.data.cuda().numpy()
         class_ids = boxes[:, -1].astype(int)
-        confidences = results.boxes.conf.cpu().numpy()
+        confidences = results.boxes.conf.cuda().numpy()
         xyxy = boxes[:, :4]
         # Create detections object
         detections = Detections(
@@ -206,28 +209,30 @@ def main():
         # Count objects crossing the line
         out_to_in, in_to_out = line_counter.trigger(detections=tracked_detections)
 
-        if mqtt_client is not None:
-            item_change_counts = dict()
-            # Iterate through all detections to send a message for each one that passed the line
-            for i, detection in enumerate(tracked_detections):
-                # Get the label for this detection
-                label = labels[i]
-                if out_to_in[i]:
-                    # Detection went from out to in
-                    if label in item_change_counts:
-                        # Subtract 1 from cart
-                        item_change_counts[label] -= 1
-                    else:
-                        item_change_counts[label] = -1
-                if in_to_out[i]:
-                    # Detection went from in to out
-                    if label in item_change_counts:
-                        # Add 1 to cart
-                        item_change_counts[label] += 1
-                    else:
-                        item_change_counts[label] = 1
-            if len(item_change_counts) > 0:
-                mqtt_client.publish(MQTT_VISION_DATA_TOPIC, payload=json.dumps(item_change_counts))
+        # if mqtt_client is not None:
+        item_change_counts = dict()
+        # Iterate through all detections to send a message for each one that passed the line
+        for i, detection in enumerate(tracked_detections):
+            # Get the label for this detection
+            label = labels[i]
+            if out_to_in[i]:
+                # Detection went from out to in
+                if label in item_change_counts:
+                    # Subtract 1 from cart
+                    item_change_counts[label] -= 1
+                else:
+                    item_change_counts[label] = -1
+            if in_to_out[i]:
+                # Detection went from in to out
+                if label in item_change_counts:
+                    # Add 1 to cart
+                    item_change_counts[label] += 1
+                else:
+                    item_change_counts[label] = 1
+        if len(item_change_counts) > 0:
+            data = json.dumps(item_change_counts) + '\n'
+            pi_serial.UART.write(data.encode('utf-8'))
+            # mqtt_client.publish(MQTT_VISION_DATA_TOPIC, payload=json.dumps(item_change_counts))
 
 
 

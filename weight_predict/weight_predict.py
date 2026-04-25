@@ -1,6 +1,6 @@
 import json
 from time import sleep
-import serial
+import pi_serial
 from typing import List, Tuple, Dict
 from data_classes import Item
 import math
@@ -12,9 +12,7 @@ from pathlib import Path
 MAX_ITEM_REMOVALS_TO_CHECK = 3
 THRESHOLD_WEIGHT_PROBABILITY = 30
 
-ESP_SERIAL_PORT = "/dev/ttyTHS1"
-PI_SERIAL_PORT = "/dev/ttyUSB0"
-
+# ESP_SERIAL_PORT = "/dev/ttyTHS1"
 class Slot:
 
     _items: List[Item]
@@ -163,22 +161,14 @@ def main():
         mac_address_to_shelves[shelf._mac_address] = shelf
 
     # Set up uart ports
-    esp_uart_port = serial.Serial(
-        port=ESP_SERIAL_PORT,
-        baudrate=115200,
-        bytesize=serial.EIGHTBITS,
-        parity=serial.PARITY_NONE,
-        stopbits=serial.STOPBITS_ONE,
-        timeout=1
-    )
-    pi_uart_port = serial.Serial(
-        port=PI_SERIAL_PORT,
-        baudrate=9600,
-        bytesize=serial.EIGHTBITS,
-        parity=serial.PARITY_NONE,
-        stopbits=serial.STOPBITS_ONE,
-        timeout=1
-    )
+    # esp_uart_port = serial.Serial(
+    #     port=ESP_SERIAL_PORT,
+    #     baudrate=115200,
+    #     bytesize=serial.EIGHTBITS,
+    #     parity=serial.PARITY_NONE,
+    #     stopbits=serial.STOPBITS_ONE,
+    #     timeout=1
+    # )
 
     while True:
 
@@ -217,7 +207,7 @@ def main():
                 json_str = json.dumps(json_data) + "\n"
 
                 # Send it to pi
-                pi_uart_port.write(json_str.encode('utf-8'))
+                pi_serial.pi_uart_port.write(json_str.encode('utf-8'))
 
                 time_str = time.strftime("%H:%M:%S.") + f"{int((time.time() * 1000) % 1000):03d}"
                 if item_change.quantity > 0:
