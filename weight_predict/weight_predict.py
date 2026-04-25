@@ -21,11 +21,11 @@ class Slot:
     _all_items_by_id: Dict[int, Item]
     _inventory: Dict[int, int]  # item_id -> quantity currently in this slot
 
-    def __init__(self, shelf_id: str, slot_id: int):
+    def __init__(self, shelf_id: str, slot_id: int, slot_items: Optional[List[Item]] = None):
         self._shelf_id = shelf_id
         self._slot_id = slot_id
         self._inventory = {}
-        self._all_items = db.get_items()
+        self._all_items = slot_items if slot_items is not None else db.get_items()
         self._all_items_by_id = {item.item_id: item for item in self._all_items}
 
     def set_inventory(self, inventory: Dict[int, int]):
@@ -99,7 +99,14 @@ class Shelf:
         shelf_data = db.get_shelf_contents(mac_address)
         for slot_data in shelf_data:
             slot_id = slot_data['slot_id']
-            slot = Slot(mac_address, slot_id)
+            slot_items = [
+                Item(
+                    r['id'], r['name'], r['upc'], r['price'], r['quantity'],
+                    r['weight_avg'], r['weight_std'], r['thumb_img'], r['vision_class']
+                )
+                for r in slot_data.get('items', [])
+            ]
+            slot = Slot(mac_address, slot_id, slot_items)
             inventory = {item['id']: item['quantity'] for item in slot_data.get('items', [])}
             slot.set_inventory(inventory)
             self.slots[slot_id] = slot
