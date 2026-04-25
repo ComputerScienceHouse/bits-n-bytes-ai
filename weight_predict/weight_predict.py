@@ -1,6 +1,6 @@
 import json
 from time import sleep
-from pi_serial import UART as uart
+from ..pi_serial import UART as uart
 from typing import List, Tuple, Dict
 from data_classes import Item
 import math

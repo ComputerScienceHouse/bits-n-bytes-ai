@@ -23,7 +23,7 @@ from os import environ
 # from paho.mqtt.client import Client as MqttClient
 # from paho.mqtt.client import CallbackAPIVersion
 import json
-from pi_serial import UART as uart
+from ..pi_serial import UART as uart
 
 DEFAULT_MODEL_PATH = Path("./model.pt")
 DEFAULT_WEBCAM_PORT = 0
