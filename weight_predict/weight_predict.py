@@ -109,14 +109,15 @@ class Shelf:
         shelf_data = db.get_shelf_contents(self._mac_address)
         for slot_data in shelf_data:
             sid = slot_data['slot_id']
-            slot_items = [
-                Item(
+            slot_items = list()
+            for r in slot_data.get('items', []):
+                slot_items.append(Item(
                     r['id'], r['name'], r['upc'], r['price'], r['quantity'],
                     r['weight_avg'], r['weight_std'], r['thumb_img'], r['vision_class']
-                )
-                for r in slot_data.get('items', [])
-            ]
+                ))
+                print(f"Added new item {r['name']}")
             if sid not in self.slots:
+                print("ADDING BRAND NEW SLOT")
                 slot = Slot(self._mac_address, sid, slot_items)
                 slot.set_inventory({r['id']: r['quantity'] for r in slot_data.get('items', [])})
                 self.slots[sid] = slot
@@ -177,6 +178,7 @@ def main():
             mac_address_to_shelves[mac_address] = Shelf(mac_address)
 
         shelf = mac_address_to_shelves[mac_address]
+        shelf._load_from_db()
         slot = shelf.get_slot(slot_id)
         time_str = time.strftime("%H:%M:%S.") + f"{int((time.time() * 1000) % 1000):03d}"
 
