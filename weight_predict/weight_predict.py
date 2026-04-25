@@ -11,8 +11,8 @@ import time
 MAX_ITEM_REMOVALS_TO_CHECK = 3
 THRESHOLD_WEIGHT_PROBABILITY = 30
 
-ESP_SERIAL_PORT = "/dev/ttyTHS1"
-PI_SERIAL_PORT = "/dev/ttyUSB0"
+ESP_SERIAL_PORT = "/dev/ttyUSB0"
+PI_SERIAL_PORT = "/dev/ttyTHS1"
 
 class Slot:
 
