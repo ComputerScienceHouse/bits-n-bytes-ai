@@ -96,9 +96,19 @@ class Shelf:
         self._mac_address = mac_address
         self.slots: Dict[int, Slot] = {}
 
-        shelf_data = db.get_shelf_contents(mac_address)
+        self._load_from_db()
+
+    def get_slot(self, slot_id: int) -> Slot:
+        if slot_id not in self.slots:
+            self._load_from_db()
+        if slot_id not in self.slots:
+            self.slots[slot_id] = Slot(self._mac_address, slot_id)
+        return self.slots[slot_id]
+
+    def _load_from_db(self):
+        shelf_data = db.get_shelf_contents(self._mac_address)
         for slot_data in shelf_data:
-            slot_id = slot_data['slot_id']
+            sid = slot_data['slot_id']
             slot_items = [
                 Item(
                     r['id'], r['name'], r['upc'], r['price'], r['quantity'],
@@ -106,17 +116,16 @@ class Shelf:
                 )
                 for r in slot_data.get('items', [])
             ]
-            slot = Slot(mac_address, slot_id, slot_items)
-            inventory = {item['id']: item['quantity'] for item in slot_data.get('items', [])}
-            slot.set_inventory(inventory)
-            self.slots[slot_id] = slot
-
-        print(f"Shelf {mac_address}: loaded {len(self.slots)} slots from API")
-
-    def get_slot(self, slot_id: int) -> Slot:
-        if slot_id not in self.slots:
-            self.slots[slot_id] = Slot(self._mac_address, slot_id)
-        return self.slots[slot_id]
+            if sid not in self.slots:
+                slot = Slot(self._mac_address, sid, slot_items)
+                slot.set_inventory({r['id']: r['quantity'] for r in slot_data.get('items', [])})
+                self.slots[sid] = slot
+            else:
+                existing = self.slots[sid]
+                existing._all_items = slot_items
+                existing._all_items_by_id = {item.item_id: item for item in slot_items}
+                existing._inventory = {r['id']: r['quantity'] for r in slot_data.get('items', [])}
+        print(f"Shelf {self._mac_address}: synced {len(self.slots)} slots from DB")
 
 
 def main():
