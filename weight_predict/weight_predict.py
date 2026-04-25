@@ -117,9 +117,7 @@ class Shelf:
                     r['id'], r['name'], r['upc'], r['price'], r['quantity'],
                     r['weight_avg'], r['weight_std'], r['thumb_img'], r['vision_class']
                 ))
-                print(f"Added new item {r['name']}")
             if sid not in self.slots:
-                print("ADDING BRAND NEW SLOT")
                 slot = Slot(self._mac_address, sid, slot_items)
                 slot.set_inventory({r['id']: r['quantity'] for r in slot_data.get('items', [])})
                 self.slots[sid] = slot
