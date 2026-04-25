@@ -5,10 +5,8 @@ from typing import List, Dict, Optional
 from data_classes import Item
 import math
 import database as db
-import pandas as pd
 import time
 
-MAX_ITEM_REMOVALS_TO_CHECK = 3
 THRESHOLD_WEIGHT_PROBABILITY = 30
 
 ESP_SERIAL_PORT = "/dev/ttyUSB0"
@@ -31,10 +29,11 @@ class Slot:
     def set_inventory(self, inventory: Dict[int, int]):
         self._inventory = inventory
 
-    def predict_most_likely_item(self, weight_delta: float, candidate_items: Optional[List[Item]] = None) -> List[Item]:
+    def predict_most_likely_item(self, weight_delta: float, max_quantities: Dict[int, int], candidate_items: Optional[List[Item]] = None) -> List[Item]:
         """
         Given a change in weight, predict the most likely item that could have been added/removed.
         :param weight_delta: change in weight in grams
+        :param max_quantities: item_id -> max quantity to check (slot inventory or cart quantities)
         :param candidate_items: items to consider; defaults to all items if None
         :return: list of Items with quantity indicating how many were added (positive) or removed (negative)
         """
@@ -47,22 +46,21 @@ class Slot:
         direction = 1 if weight_delta > 0 else -1
         abs_weight_delta = abs(weight_delta)
 
-        probabilities = dict()
+        all_scores: List[tuple] = []  # (log_likelihood, item_id, quantity)
         for item in candidate_items:
-            probabilities[item.item_id] = []
-            for potential_quantity in range(1, MAX_ITEM_REMOVALS_TO_CHECK + 1):
+            max_qty = max_quantities.get(item.item_id, 1)
+            for potential_quantity in range(1, max_qty + 1):
                 expected_weight = item.avg_weight * potential_quantity
                 scaled_std = item.std_weight * (potential_quantity ** 0.5)
                 z_score = (abs_weight_delta - expected_weight) / scaled_std if scaled_std > 0 else float('inf')
                 log_likelihood = -0.5 * (z_score ** 2) - math.log(scaled_std)
-                probabilities[item.item_id].append(log_likelihood)
+                all_scores.append((log_likelihood, item.item_id, potential_quantity))
 
-        df = pd.DataFrame(probabilities, index=range(1, MAX_ITEM_REMOVALS_TO_CHECK + 1)).T
-        probability_series = df.stack()
-        top_n_probabilities = probability_series.nlargest(1)
+        all_scores.sort(key=lambda x: x[0], reverse=True)
+        top_n_probabilities = all_scores[:1]
         item_ids_and_quantities: Dict[int, int] = {}
 
-        for (item_id, quantity), probability in top_n_probabilities.items():
+        for probability, item_id, quantity in top_n_probabilities:
             if abs(probability) > THRESHOLD_WEIGHT_PROBABILITY:
                 break
             if item_id in item_ids_and_quantities:
@@ -189,7 +187,7 @@ def main():
 
         if weight_delta < 0:
             # Item removed from shelf — predict from all items
-            item_changes = slot.predict_most_likely_item(weight_delta)
+            item_changes = slot.predict_most_likely_item(weight_delta, slot._inventory)
             for item_change in item_changes:
                 qty = abs(item_change.quantity)
                 item_id = item_change.item_id
@@ -223,7 +221,7 @@ def main():
             if not cart_items:
                 continue
 
-            item_changes = slot.predict_most_likely_item(weight_delta, cart_items)
+            item_changes = slot.predict_most_likely_item(weight_delta, cart, cart_items)
             for item_change in item_changes:
                 qty = abs(item_change.quantity)
                 item_id = item_change.item_id
