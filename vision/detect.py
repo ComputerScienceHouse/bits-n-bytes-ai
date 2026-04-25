@@ -23,8 +23,7 @@ from os import environ
 # from paho.mqtt.client import Client as MqttClient
 # from paho.mqtt.client import CallbackAPIVersion
 import json
-
-import pi_serial
+from pi_serial import UART as uart
 
 DEFAULT_MODEL_PATH = Path("./model.pt")
 DEFAULT_WEBCAM_PORT = 0
@@ -231,7 +230,7 @@ def main():
                     item_change_counts[label] = 1
         if len(item_change_counts) > 0:
             data = json.dumps(item_change_counts) + '\n'
-            pi_serial.UART.write(data.encode('utf-8'))
+            uart.write(data.encode('utf-8'))
             # mqtt_client.publish(MQTT_VISION_DATA_TOPIC, payload=json.dumps(item_change_counts))
 
 

@@ -1,6 +1,6 @@
 import json
 from time import sleep
-import pi_serial
+from pi_serial import UART as uart
 from typing import List, Tuple, Dict
 from data_classes import Item
 import math
@@ -174,7 +174,7 @@ def main():
 
         sleep(0.1)
 
-        line = esp_uart_port.readline().decode('utf-8', errors='ignore').strip()
+        line = uart.readline().decode('utf-8', errors='ignore').strip()
 
         if not line:
             continue
@@ -207,7 +207,7 @@ def main():
                 json_str = json.dumps(json_data) + "\n"
 
                 # Send it to pi
-                pi_serial.pi_uart_port.write(json_str.encode('utf-8'))
+                uart.write(json_str.encode('utf-8'))
 
                 time_str = time.strftime("%H:%M:%S.") + f"{int((time.time() * 1000) % 1000):03d}"
                 if item_change.quantity > 0:
