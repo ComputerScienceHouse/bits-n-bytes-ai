@@ -70,9 +70,13 @@ class Slot:
             else:
                 item_ids_and_quantities[item_id] = direction * quantity
 
+        candidate_by_id = {item.item_id: item for item in candidate_items}
+
         items: List[Item] = []
         for item_id, quantity in item_ids_and_quantities.items():
-            existing = self._all_items_by_id[item_id]
+            existing = candidate_by_id.get(item_id) or self._all_items_by_id.get(item_id)
+            if existing is None:
+                continue
             items.append(Item(
                 item_id,
                 existing.name,
