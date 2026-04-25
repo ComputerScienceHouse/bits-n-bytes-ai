@@ -133,6 +133,7 @@ def main():
 
     mac_address_to_shelves: Dict[str, Shelf] = {}
     cart: Dict[int, int] = {}  # item_id -> quantity currently in cart
+    cart_item_data: Dict[int, Item] = {}  # item_id -> Item object (survives DB reloads)
 
     esp_uart_port = serial.Serial(
         port=ESP_SERIAL_PORT,
@@ -201,6 +202,7 @@ def main():
 
                 # Add to cart
                 cart[item_id] = cart.get(item_id, 0) + qty
+                cart_item_data[item_id] = slot._all_items_by_id[item_id]
 
                 # UI: positive quantity = add to cart
                 out = {'id': item_id, 'quantity': qty}
@@ -213,7 +215,7 @@ def main():
             if not cart:
                 continue
 
-            cart_items = [slot._all_items_by_id[iid] for iid in cart if iid in slot._all_items_by_id]
+            cart_items = [cart_item_data[iid] for iid in cart if iid in cart_item_data]
             if not cart_items:
                 continue
 
@@ -226,6 +228,7 @@ def main():
                 new_cart_qty = max(0, cart.get(item_id, 0) - qty)
                 if new_cart_qty == 0:
                     cart.pop(item_id, None)
+                    cart_item_data.pop(item_id, None)
                 else:
                     cart[item_id] = new_cart_qty
 
