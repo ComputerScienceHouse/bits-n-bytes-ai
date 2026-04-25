@@ -86,11 +86,6 @@ USE_MOCK_DB_DATA = os.getenv("USE_MOCK_DB_DATA", 'false').lower() == 'true'
 
 REQUEST_HEADERS = {"Authorization": AUTHORIZATION_KEY}
 
-# Store a cached list of all items
-cached_items = None
-# Store a cached dictionary of items, accessible by ID
-cached_items_by_id = None
-
 
 def is_reachable() -> bool:
     """
@@ -114,48 +109,22 @@ def get_items() -> List[Item]:
     Get all items
     :return: A List of Item. If there is an error, an empty list is returned
     """
-    global cached_items, cached_items_by_id
-
     print("GET /get_items")
     if USE_MOCK_DB_DATA:
         return list(MOCK_ITEMS.values())
-    else:
-        # Fetch data only if there is no cache
-        if cached_items is None:
-            url = API_ENDPOINT + "get_items"
-            # Make request
-            response = requests.get(url, headers={"Authorization": AUTHORIZATION_KEY})
-            # Check response code
-            if response.status_code == 200:
-                # Create list of items
-                result = list()
-                for item_raw in response.json():
-                    result.append(Item(
-                        item_raw['id'],
-                        item_raw['name'],
-                        item_raw['upc'],
-                        item_raw['price'],
-                        item_raw['quantity'],
-                        item_raw['weight_avg'],
-                        item_raw['weight_std'],
-                        item_raw['thumb_img'],
-                        item_raw['vision_class']
-                    ))
-                # Cache the items list
-                cached_items = result
-                # Cache items by ID
-                cached_items_by_id = dict()
-                for item in result:
-                    cached_items_by_id[item.item_id] = item
-                    print(f"stored item {item.item_id} in cache")
-                return result
-            else:
-                # Something went wrong so print info and return empty list
-                print(f"\tReceived response {response.status_code}:")
-                print(f"\t{response.content}")
-                return list()
-        else:
-            return cached_items
+    url = API_ENDPOINT + "get_items"
+    response = requests.get(url, headers={"Authorization": AUTHORIZATION_KEY})
+    if response.status_code == 200:
+        return [
+            Item(
+                r['id'], r['name'], r['upc'], r['price'], r['quantity'],
+                r['weight_avg'], r['weight_std'], r['thumb_img'], r['vision_class']
+            )
+            for r in response.json()
+        ]
+    print(f"\tReceived response {response.status_code}:")
+    print(f"\t{response.content}")
+    return []
 
 
 def get_item(item_id: int) -> Item | None:
@@ -163,39 +132,20 @@ def get_item(item_id: int) -> Item | None:
     Get an item from its ID
     :return: An Item or None if the item does not exist
     """
-    global cached_items_by_id
     print(f"GET /items/{item_id}")
     if USE_MOCK_DB_DATA:
-        if item_id in MOCK_ITEMS:
-            return MOCK_ITEMS[item_id]
-        else:
-            return None
-    else:
-        if cached_items_by_id is None:
-            url = API_ENDPOINT + f"/items/{item_id}"
-            # Make request
-            response = requests.get(url, headers=REQUEST_HEADERS)
-            # Check response code
-            if response.status_code == 200:
-                item = response.json()
-                return Item(
-                    item['id'],
-                    item['name'],
-                    item['upc'],
-                    item['price'],
-                    item['quantity'],
-                    item['weight_avg'],
-                    item['weight_std'],
-                    item['thumb_img'],
-                    item['vision_class']
-                )
-            else:
-                # Something went wrong so print info and return None
-                print(f"\tReceived response {response.status_code}:")
-                print(f"\t{response.content}")
-                return None
-        else:
-            return cached_items_by_id[item_id]
+        return MOCK_ITEMS.get(item_id)
+    url = API_ENDPOINT + f"items/{item_id}"
+    response = requests.get(url, headers=REQUEST_HEADERS)
+    if response.status_code == 200:
+        r = response.json()
+        return Item(
+            r['id'], r['name'], r['upc'], r['price'], r['quantity'],
+            r['weight_avg'], r['weight_std'], r['thumb_img'], r['vision_class']
+        )
+    print(f"\tReceived response {response.status_code}:")
+    print(f"\t{response.content}")
+    return None
 
 
 def get_shelf_contents(shelf_id: str) -> list:
