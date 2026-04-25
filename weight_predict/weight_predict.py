@@ -152,9 +152,19 @@ def main():
         timeout=1
     )
 
+    CLEAR_CART_CMD = bytes([0xDE, 0xAD, 0xBE, 0xEF])
+
     while True:
 
         sleep(0.1)
+
+        # Check for a clear-cart command from the UI before processing shelf data
+        if pi_uart_port.in_waiting >= len(CLEAR_CART_CMD):
+            incoming = pi_uart_port.read(len(CLEAR_CART_CMD))
+            if incoming == CLEAR_CART_CMD:
+                cart.clear()
+                cart_item_data.clear()
+                print("Cart cleared by UI command")
 
         line = esp_uart_port.readline().decode('utf-8', errors='ignore').strip()
 
