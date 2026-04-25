@@ -196,3 +196,83 @@ def get_item(item_id: int) -> Item | None:
                 return None
         else:
             return cached_items_by_id[item_id]
+
+
+def get_shelf_contents(shelf_id: str) -> list:
+    """
+    Get all slot contents for a shelf.
+    :return: List of {slot_id, items: [{id, quantity, ...}]} or empty list on error
+    """
+    print(f"GET /shelf/{shelf_id}")
+    if USE_MOCK_DB_DATA:
+        return []
+    url = API_ENDPOINT + f"shelf/{shelf_id}"
+    try:
+        response = requests.get(url, headers=REQUEST_HEADERS)
+        if response.status_code == 200:
+            return response.json()
+        print(f"\tReceived response {response.status_code}: {response.content}")
+        return []
+    except requests.RequestException as e:
+        print(f"\tRequest exception: {e}")
+        return []
+
+
+def update_shelf_slot_quantity(shelf_id: str, slot_id: int, item_id: int, quantity: int) -> bool:
+    """
+    Update the quantity of an item in a shelf slot. PUT /shelf/<shelf_id>/slot/<slot_id>
+    :return: True on success, False on failure
+    """
+    print(f"PUT /shelf/{shelf_id}/slot/{slot_id} item_id={item_id} quantity={quantity}")
+    if USE_MOCK_DB_DATA:
+        return True
+    url = API_ENDPOINT + f"shelf/{shelf_id}/slot/{slot_id}"
+    try:
+        response = requests.put(url, json={'item_id': item_id, 'quantity': quantity}, headers=REQUEST_HEADERS)
+        if response.status_code == 200:
+            return True
+        print(f"\tReceived response {response.status_code}: {response.content}")
+        return False
+    except requests.RequestException as e:
+        print(f"\tRequest exception: {e}")
+        return False
+
+
+def add_shelf_slot_item(shelf_id: str, slot_id: int, item_id: int, quantity: int) -> bool:
+    """
+    Add an item to a shelf slot. POST /shelf/<shelf_id>/slot/<slot_id>
+    :return: True on success, False on failure
+    """
+    print(f"POST /shelf/{shelf_id}/slot/{slot_id} item_id={item_id} quantity={quantity}")
+    if USE_MOCK_DB_DATA:
+        return True
+    url = API_ENDPOINT + f"shelf/{shelf_id}/slot/{slot_id}"
+    try:
+        response = requests.post(url, json={'item_id': item_id, 'quantity': quantity}, headers=REQUEST_HEADERS)
+        if response.status_code in (200, 201):
+            return True
+        print(f"\tReceived response {response.status_code}: {response.content}")
+        return False
+    except requests.RequestException as e:
+        print(f"\tRequest exception: {e}")
+        return False
+
+
+def remove_shelf_slot_item(shelf_id: str, slot_id: int, item_id: int) -> bool:
+    """
+    Remove an item from a shelf slot. DELETE /shelf/<shelf_id>/slot/<slot_id>
+    :return: True on success, False on failure
+    """
+    print(f"DELETE /shelf/{shelf_id}/slot/{slot_id} item_id={item_id}")
+    if USE_MOCK_DB_DATA:
+        return True
+    url = API_ENDPOINT + f"shelf/{shelf_id}/slot/{slot_id}"
+    try:
+        response = requests.delete(url, json={'item_id': item_id}, headers=REQUEST_HEADERS)
+        if response.status_code in (200, 204):
+            return True
+        print(f"\tReceived response {response.status_code}: {response.content}")
+        return False
+    except requests.RequestException as e:
+        print(f"\tRequest exception: {e}")
+        return False
