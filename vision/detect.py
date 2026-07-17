@@ -22,6 +22,7 @@ from os import environ
 from paho.mqtt.client import Client as MqttClient
 from paho.mqtt.client import CallbackAPIVersion
 import json
+import numpy as np
 
 DEFAULT_MODEL_PATH = Path("./model.pt")
 DEFAULT_WEBCAM_PORT = 0
@@ -108,11 +109,14 @@ def main():
 
     # Load YOLO v11 model
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model = YOLO(args.model_path)
+    model = YOLO(args.model_path) # Manual warmup — run a dummy frame through before the loop
+    dummy = np.zeros((640, 640, 3), dtype=np.uint8)
+    model(dummy, verbose=False)
+    print("Model warmed up")
 
     # Put half model on CUDA device if it's available
-    if torch.cuda.is_available():
-        model = model.half().to(device)
+    # if torch.cuda.is_available():
+    #     model = model.half().to(device)
 
     # Configure object tracking. Helps smooth object detection getting lost between multiple frames
     byte_tracker = sv.ByteTrack(
@@ -140,9 +144,14 @@ def main():
             print("Failed to read frame")
             continue
 
+        # Convert frame to be compatible with YOLOv11n
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         # Get results from model
         results = model(frame, verbose=False)[0]
-        if not results:
+        print("Inference done")
+        print(f"Raw boxes: {results.boxes}")
+        print(f"Model classes: {results.names}")  # <-- shows what classes the model knows
+        if results.boxes is None or len(results.boxes) == 0:
             continue
 
         # Pull out bounding boxes, class IDs, confidence levels, and positions
