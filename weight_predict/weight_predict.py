@@ -109,6 +109,7 @@ class Shelf:
 
     def _load_from_db(self):
         shelf_data = db.get_shelf_contents(self._mac_address)
+        new_slots: Dict[int, Slot] = {}
         for slot_data in shelf_data:
             sid = slot_data['slot_id']
             slot_items = list()
@@ -117,15 +118,12 @@ class Shelf:
                     r['id'], r['name'], r['upc'], r['price'], r['quantity'],
                     r['weight_avg'], r['weight_std'], r['thumb_img'], r['vision_class']
                 ))
-            if sid not in self.slots:
-                slot = Slot(self._mac_address, sid, slot_items)
-                slot.set_inventory({r['id']: r['quantity'] for r in slot_data.get('items', [])})
-                self.slots[sid] = slot
-            else:
-                existing = self.slots[sid]
-                existing._all_items = slot_items
-                existing._all_items_by_id = {item.item_id: item for item in slot_items}
-                existing._inventory = {r['id']: r['quantity'] for r in slot_data.get('items', [])}
+            slot = Slot(self._mac_address, sid, slot_items)
+            slot.set_inventory({r['id']: r['quantity'] for r in slot_data.get('items', [])})
+            new_slots[sid] = slot
+        # Replace wholesale so slots no longer returned by the DB (e.g. emptied
+        # or removed) don't linger with stale data from a previous load.
+        self.slots = new_slots
         print(f"Shelf {self._mac_address}: synced {len(self.slots)} slots from DB")
 
 
