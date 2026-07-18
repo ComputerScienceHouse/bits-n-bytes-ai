@@ -153,6 +153,7 @@ def main():
     )
 
     CLEAR_CART_CMD = bytes([0xDE, 0xAD, 0xBE, 0xEF])
+    END_TRANSACTION_CMD = bytes([0xDE, 0xAD, 0xFA, 0xCE])
 
     while True:
 
@@ -162,10 +163,14 @@ def main():
         if pi_uart_port.in_waiting >= len(CLEAR_CART_CMD):
             incoming = pi_uart_port.read(len(CLEAR_CART_CMD))
             if incoming == CLEAR_CART_CMD:
-                print("Cart cleared / transaction started by UI command")
 
-                # End transaction: Update DB with current status
-                # TODO this should be moved to "end transaction"
+                # Start transaction: clear cart and fetch all data
+                cart.clear()
+                cart_item_data.clear()
+                for mac_addr in mac_address_to_shelves:
+                    mac_address_to_shelves[mac_addr]._load_from_db()
+                print("Transaction started, cart cleared, got most recent shelf contents")
+            elif incoming == END_TRANSACTION_CMD:
                 bulk_update_payload: Dict[str, Dict[int, Dict[int, int]]] = {}
                 for mac_addr, shelf in mac_address_to_shelves.items():
                     for slot_id, slot in shelf.slots.items():
@@ -173,12 +178,8 @@ def main():
                             bulk_update_payload.setdefault(mac_addr, {})[slot_id] = dict(slot._inventory)
                 if bulk_update_payload:
                     db.bulk_update_shelf_quantities(bulk_update_payload)
+                print("Cached shelf contents pushed to DB")
 
-                # Start transaction: clear cart and fetch all data
-                cart.clear()
-                cart_item_data.clear()
-                for mac_addr in mac_address_to_shelves:
-                    mac_address_to_shelves[mac_addr]._load_from_db()
 
 
 
@@ -263,9 +264,11 @@ def main():
                 new_qty = current_qty + qty
                 slot._inventory[item_id] = new_qty
                 if current_qty == 0:
-                    db.add_shelf_slot_item(mac_address, slot_id, item_id, qty)
+                    pass
+                    # db.add_shelf_slot_item(mac_address, slot_id, item_id, qty)
                 else:
-                    db.update_shelf_slot_quantity(mac_address, slot_id, item_id, new_qty)
+                    pass
+                    # db.update_shelf_slot_quantity(mac_address, slot_id, item_id, new_qty)
 
                 # UI: negative quantity = remove from cart (put back)
                 out = {'id': item_id, 'quantity': -qty}
