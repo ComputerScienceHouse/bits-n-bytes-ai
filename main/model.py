@@ -110,7 +110,7 @@ class Slot:
             ))
         return items
 
-SHELF_LOCAL = Dict(str, Dict[int, Slot])
+SHELF_LOCAL = dict[str, dict[int, Slot]]
 class Shelf:
 
     _mac_address: str
@@ -118,7 +118,7 @@ class Shelf:
 
     def __init__(self, mac_address: str):
         self._mac_address = mac_address
-        self.slots: Dict[int, Slot] = {}
+        self.slots: dict[int, Slot] = {}
 
         self._load_from_db()
 
