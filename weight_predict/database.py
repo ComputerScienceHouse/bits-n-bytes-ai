@@ -208,6 +208,34 @@ def add_shelf_slot_item(shelf_id: str, slot_id: int, item_id: int, quantity: int
         return False
 
 
+def bulk_update_shelf_quantities(data: dict) -> bool:
+    """
+    Bulk update item quantities across shelves and slots.
+    PUT /shelves/bulk_update
+    :param data: {
+        mac_addr1: {
+            slot_id1: { item_id1: quantity, item_id2: quantity },
+            slot_id2: { item_id1: quantity }
+        },
+        mac_addr2: { ... }
+    }
+    :return: True on success, False on failure
+    """
+    print(f"PUT /shelves/bulk_update")
+    if USE_MOCK_DB_DATA:
+        return True
+    url = API_ENDPOINT + "shelves/bulk_update"
+    try:
+        response = requests.put(url, json=data, headers=REQUEST_HEADERS)
+        if response.status_code == 200:
+            return True
+        print(f"\tReceived response {response.status_code}: {response.content}")
+        return False
+    except requests.RequestException as e:
+        print(f"\tRequest exception: {e}")
+        return False
+
+
 def remove_shelf_slot_item(shelf_id: str, slot_id: int, item_id: int) -> bool:
     """
     Remove an item from a shelf slot. DELETE /shelf/<shelf_id>/slot/<slot_id>

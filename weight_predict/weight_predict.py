@@ -162,15 +162,25 @@ def main():
         if pi_uart_port.in_waiting >= len(CLEAR_CART_CMD):
             incoming = pi_uart_port.read(len(CLEAR_CART_CMD))
             if incoming == CLEAR_CART_CMD:
+                print("Cart cleared / transaction started by UI command")
+
+                # End transaction: Update DB with current status
+                # TODO this should be moved to "end transaction"
+                bulk_update_payload: Dict[str, Dict[int, Dict[int, int]]] = {}
+                for mac_addr, shelf in mac_address_to_shelves.items():
+                    for slot_id, slot in shelf.slots.items():
+                        if slot._inventory:
+                            bulk_update_payload.setdefault(mac_addr, {})[slot_id] = dict(slot._inventory)
+                if bulk_update_payload:
+                    db.bulk_update_shelf_quantities(bulk_update_payload)
+
+                # Start transaction: clear cart and fetch all data
                 cart.clear()
                 cart_item_data.clear()
-                print("Cart cleared by UI command")
-
                 for mac_addr in mac_address_to_shelves:
                     mac_address_to_shelves[mac_addr]._load_from_db()
 
-                # TODO pull updated info from the DB
-                # TODO this should be separated into a "start transaction" call in the future
+
 
         line = esp_uart_port.readline().decode('utf-8', errors='ignore').strip()
 
