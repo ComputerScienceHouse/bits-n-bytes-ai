@@ -2,6 +2,7 @@ import serial
 from typing import List, Dict, Optional
 import math
 from config import *
+import database as db
 
 class Item:
 
