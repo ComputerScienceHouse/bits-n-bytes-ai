@@ -110,7 +110,7 @@ class Slot:
             ))
         return items
 
-
+SHELF_LOCAL = Dict(str, Dict[int, Slot])
 class Shelf:
 
     _mac_address: str
@@ -130,6 +130,10 @@ class Shelf:
         return self.slots[slot_id]
 
     def _load_from_db(self):
+        if SHELF_LOCAL[self._mac_address] is not None:
+            print("loading local data for shelf " + self._mac_address)
+            self.slots = SHELF_LOCAL[self._mac_address]
+            return
         shelf_data = db.get_shelf_contents(self._mac_address)
         for slot_data in shelf_data:
             sid = slot_data['slot_id']

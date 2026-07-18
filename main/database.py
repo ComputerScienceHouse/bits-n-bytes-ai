@@ -12,6 +12,7 @@ import requests
 from typing import List
 import config
 from model import Item
+import json
 
 API_ENDPOINT = os.getenv("BNB_API_ENDPOINT", '')
 AUTHORIZATION_KEY = os.getenv("BNB_AUTHORIZATION_KEY", '')
