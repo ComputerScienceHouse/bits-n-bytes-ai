@@ -220,10 +220,10 @@ def main():
                 current_qty = slot._inventory.get(item_id, 0)
                 new_qty = max(0, current_qty - qty)
                 if new_qty == 0:
-                    db.remove_shelf_slot_item(mac_address, slot_id, item_id)
+                    # db.remove_shelf_slot_item(mac_address, slot_id, item_id)
                     slot._inventory.pop(item_id, None)
                 else:
-                    db.update_shelf_slot_quantity(mac_address, slot_id, item_id, new_qty)
+                    # db.update_shelf_slot_quantity(mac_address, slot_id, item_id, new_qty)
                     slot._inventory[item_id] = new_qty
 
                 # Add to cart
