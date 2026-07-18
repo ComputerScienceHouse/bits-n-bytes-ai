@@ -166,6 +166,12 @@ def main():
                 cart_item_data.clear()
                 print("Cart cleared by UI command")
 
+                for mac_addr in mac_address_to_shelves:
+                    mac_address_to_shelves[mac_addr]._load_from_db()
+
+                # TODO pull updated info from the DB
+                # TODO this should be separated into a "start transaction" call in the future
+
         line = esp_uart_port.readline().decode('utf-8', errors='ignore').strip()
 
         if not line:
@@ -189,7 +195,7 @@ def main():
             mac_address_to_shelves[mac_address] = Shelf(mac_address)
 
         shelf = mac_address_to_shelves[mac_address]
-        shelf._load_from_db()
+        # shelf._load_from_db()
         slot = shelf.get_slot(slot_id)
         time_str = time.strftime("%H:%M:%S.") + f"{int((time.time() * 1000) % 1000):03d}"
 
