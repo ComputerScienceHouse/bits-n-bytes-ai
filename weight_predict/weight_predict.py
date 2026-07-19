@@ -229,7 +229,7 @@ def main():
         # Check for a clear-cart command from the UI before processing shelf data
         if pi_uart_port.in_waiting >= len(START_TRANS_RECORD_ON_CMD):
             incoming = pi_uart_port.read(len(START_TRANS_RECORD_ON_CMD))
-            if incoming == START_TRANS_RECORD_ON_CMD or START_TRANS_RECORD_OFF_CMD:
+            if incoming == START_TRANS_RECORD_ON_CMD or incoming == TART_TRANS_RECORD_OFF_CMD:
 
                 # Start transaction: clear cart and fetch all data
                 cart.clear()
