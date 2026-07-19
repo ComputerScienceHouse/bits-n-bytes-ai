@@ -150,17 +150,19 @@ def main():
         timeout=1
     )
 
-    CLEAR_CART_CMD = bytes([0xDE, 0xAD, 0xBE, 0xEF])
-    END_TRANSACTION_CMD = bytes([0xDE, 0xAD, 0xFA, 0xCE])
+    START_TRANS_RECORD_ON_CMD = bytes([0xDE, 0xAD, 0xBE, 0xAD])
+    START_TRANS_RECORD_OFF_CMD = bytes([0xDE, 0xAD, 0xBE, 0xEF])
+    END_TRANS_CMD = bytes([0xDE, 0xAD, 0xFA, 0xCE])
+
 
     while True:
 
         sleep(0.1)
 
         # Check for a clear-cart command from the UI before processing shelf data
-        if pi_uart_port.in_waiting >= len(CLEAR_CART_CMD):
-            incoming = pi_uart_port.read(len(CLEAR_CART_CMD))
-            if incoming == CLEAR_CART_CMD:
+        if pi_uart_port.in_waiting >= len(START_TRANS_RECORD_ON_CMD):
+            incoming = pi_uart_port.read(len(START_TRANS_RECORD_ON_CMD))
+            if incoming == START_TRANS_RECORD_ON_CMD or START_TRANS_RECORD_OFF_CMD:
 
                 # Start transaction: clear cart and fetch all data
                 cart.clear()
@@ -168,7 +170,14 @@ def main():
                 for mac_addr in mac_address_to_shelves:
                     mac_address_to_shelves[mac_addr]._load_from_db()
                 print("Transaction started, cart cleared, got most recent shelf contents")
-            elif incoming == END_TRANSACTION_CMD:
+
+                if START_TRANS_RECORD_ON_CMD:
+                    print("RECORDING ENABLED")
+                elif START_TRANS_RECORD_OFF_CMD:
+                    print("RECORDING_DISABLED")
+
+
+            elif incoming == END_TRANS_CMD:
                 bulk_update_payload: Dict[str, Dict[int, Dict[int, int]]] = {}
                 for mac_addr, shelf in mac_address_to_shelves.items():
                     for slot_id, slot in shelf.slots.items():
