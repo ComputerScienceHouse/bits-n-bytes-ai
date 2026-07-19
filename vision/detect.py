@@ -271,7 +271,7 @@ def main():
             break
         elif cv2.waitKey(1) & 0xFF == ord('l'):
             REC_IMAGES = not REC_IMAGES
-            print('toggle images to' + 'on' if REC_IMAGES else 'off')
+            print('toggle images to' + 'on' if REC_IMAGES else 'off' )
 
 
     # Exit program
