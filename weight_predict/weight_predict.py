@@ -254,7 +254,7 @@ def main():
                             bulk_update_payload.setdefault(mac_addr, {})[slot_id] = dict(slot._inventory)
                 if bulk_update_payload:
                     db.bulk_update_shelf_quantities(bulk_update_payload)
-                print("Cached shelf contents pushed to DB")
+                print("Transaction ended, cached shelf contents pushed to DB")
 
 
 
