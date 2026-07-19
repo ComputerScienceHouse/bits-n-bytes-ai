@@ -239,12 +239,14 @@ def main():
                 print("Transaction started, cart cleared, got most recent shelf contents")
 
                 if START_TRANS_RECORD_ON_CMD:
+                    trigger_start_recording()
                     print("RECORDING ENABLED")
                 elif START_TRANS_RECORD_OFF_CMD:
                     print("RECORDING_DISABLED")
 
 
             elif incoming == END_TRANS_CMD:
+                trigger_stop_recording()
                 bulk_update_payload: Dict[str, Dict[int, Dict[int, int]]] = {}
                 for mac_addr, shelf in mac_address_to_shelves.items():
                     for slot_id, slot in shelf.slots.items():
