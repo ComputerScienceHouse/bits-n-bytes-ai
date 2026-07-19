@@ -250,7 +250,7 @@ def main():
                 bulk_update_payload: Dict[str, Dict[int, Dict[int, int]]] = {}
                 for mac_addr, shelf in mac_address_to_shelves.items():
                     for slot_id, slot in shelf.slots.items():
-                        if slot._inventory:
+                        if slot._all_items:
                             bulk_update_payload.setdefault(mac_addr, {})[slot_id] = dict(slot._inventory)
                 if bulk_update_payload:
                     db.bulk_update_shelf_quantities(bulk_update_payload)
@@ -293,15 +293,13 @@ def main():
                 qty = abs(item_change.quantity)
                 item_id = item_change.item_id
 
-                # Update slot inventory
+                # Update slot inventory (keep the key even at 0 so the
+                # end-of-transaction sync reports the item as depleted
+                # instead of silently omitting it)
                 current_qty = slot._inventory.get(item_id, 0)
                 new_qty = max(0, current_qty - qty)
-                if new_qty == 0:
-                    # db.remove_shelf_slot_item(mac_address, slot_id, item_id)
-                    slot._inventory.pop(item_id, None)
-                else:
-                    # db.update_shelf_slot_quantity(mac_address, slot_id, item_id, new_qty)
-                    slot._inventory[item_id] = new_qty
+                # db.update_shelf_slot_quantity(mac_address, slot_id, item_id, new_qty)
+                slot._inventory[item_id] = new_qty
 
                 # Add to cart
                 cart[item_id] = cart.get(item_id, 0) + qty
