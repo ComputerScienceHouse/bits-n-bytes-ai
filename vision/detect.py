@@ -24,6 +24,9 @@ from paho.mqtt.client import CallbackAPIVersion
 import json
 from datetime import datetime
 import os
+import asyncio
+import threading
+import websockets
 
 DEFAULT_MODEL_PATH = Path("./model.pt")
 DEFAULT_WEBCAM_PORT = 0
@@ -34,6 +37,42 @@ MQTT_VISION_DATA_TOPIC = 'vision/data'
 IMAGE_THRES = 40
 IMAGE_PATH = 'images/'
 REC_IMAGES = False
+
+# weight_predict.py broadcasts start_recording/stop_recording events on this
+# loopback WebSocket. See weight_predict/RECORDING_WS_HANDOFF.md.
+RECORDING_WS_URL = environ.get("RECORDING_WS_URL", "ws://127.0.0.1:8765")
+
+
+def _listen_for_recording_events():
+    """Connect to the weight_predict.py recording WebSocket and keep REC_IMAGES
+    in sync with the most recently received start_recording/stop_recording event.
+    Runs forever in a background thread, reconnecting with backoff on failure."""
+    global REC_IMAGES
+    asyncio.run(_recording_events_loop())
+
+
+async def _recording_events_loop():
+    global REC_IMAGES
+    while True:
+        try:
+            async with websockets.connect(RECORDING_WS_URL) as ws:
+                print(f"Connected to recording WebSocket at {RECORDING_WS_URL}")
+                async for raw_message in ws:
+                    try:
+                        message = json.loads(raw_message)
+                    except json.JSONDecodeError:
+                        print(f"Unable to decode recording event: {raw_message}")
+                        continue
+                    event = message.get('event')
+                    if event == 'start_recording':
+                        REC_IMAGES = True
+                        print("Recording event: start_recording -> REC_IMAGES = True")
+                    elif event == 'stop_recording':
+                        REC_IMAGES = False
+                        print("Recording event: stop_recording -> REC_IMAGES = False")
+        except (OSError, websockets.exceptions.WebSocketException) as e:
+            print(f"Recording WebSocket connection failed ({e}), retrying in 2s")
+            await asyncio.sleep(2)
 
 def main():
     global REC_IMAGES
@@ -69,6 +108,10 @@ def main():
         help="Start and end coordinates of the line in the form x1,y1,x2,y2"
     )
     args = arg_parser.parse_args()
+
+    # Start background thread that listens for recording start/stop events
+    # from weight_predict.py and keeps REC_IMAGES up to date.
+    threading.Thread(target=_listen_for_recording_events, daemon=True).start()
 
     # Verify that the line argument was entered correctly
     split_line = args.line.split(',')
