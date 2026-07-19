@@ -1,4 +1,6 @@
+import asyncio
 import json
+import threading
 from time import sleep
 import serial
 from typing import List, Dict, Optional
@@ -6,11 +8,67 @@ from data_classes import Item
 import math
 import database as db
 import time
+import websockets
 
 THRESHOLD_WEIGHT_PROBABILITY = 30
 
 ESP_SERIAL_PORT = "/dev/ttyUSB0"
 PI_SERIAL_PORT = "/dev/ttyTHS1"
+
+RECORDING_WS_HOST = "127.0.0.1"
+RECORDING_WS_PORT = 8765
+
+
+class RecordingBroadcaster:
+    """Runs a WebSocket server on loopback and broadcasts recording start/stop events."""
+
+    def __init__(self, host: str = RECORDING_WS_HOST, port: int = RECORDING_WS_PORT):
+        self._host = host
+        self._port = port
+        self._clients: set = set()
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._ready = threading.Event()
+
+    def start(self):
+        thread = threading.Thread(target=self._run_loop, daemon=True)
+        thread.start()
+        self._ready.wait()
+
+    def _run_loop(self):
+        self._loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
+        self._loop.run_until_complete(self._serve())
+
+    async def _serve(self):
+        async with websockets.serve(self._handle_client, self._host, self._port):
+            print(f"Recording WebSocket server listening on ws://{self._host}:{self._port}")
+            self._loop.call_soon(self._ready.set)
+            await asyncio.Future()  # run forever
+
+    async def _handle_client(self, websocket):
+        self._clients.add(websocket)
+        try:
+            async for _ in websocket:
+                pass
+        finally:
+            self._clients.discard(websocket)
+
+    async def _broadcast(self, message: dict):
+        if not self._clients:
+            return
+        payload = json.dumps(message)
+        await asyncio.gather(
+            *(client.send(payload) for client in list(self._clients)),
+            return_exceptions=True
+        )
+
+    def broadcast(self, message: dict):
+        if self._loop is None:
+            return
+        asyncio.run_coroutine_threadsafe(self._broadcast(message), self._loop)
+
+
+recording_broadcaster = RecordingBroadcaster()
 
 
 class Slot:
@@ -126,8 +184,17 @@ class Shelf:
         self.slots = new_slots
         print(f"Shelf {self._mac_address}: synced {len(self.slots)} slots from DB")
 
+def trigger_start_recording():
+    recording_broadcaster.broadcast({'event': 'start_recording', 'timestamp': time.time()})
+
+
+def trigger_stop_recording():
+    recording_broadcaster.broadcast({'event': 'stop_recording', 'timestamp': time.time()})
+
 
 def main():
+
+    recording_broadcaster.start()
 
     mac_address_to_shelves: Dict[str, Shelf] = {}
     cart: Dict[int, int] = {}  # item_id -> quantity currently in cart
